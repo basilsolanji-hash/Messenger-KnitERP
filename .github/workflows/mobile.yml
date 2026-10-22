@@ -1,0 +1,48 @@
+name: Android and libsignal
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  build-and-encrypt:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: messenger
+          POSTGRES_DB: messenger_crypto_test
+          POSTGRES_PASSWORD: ci-ephemeral-only
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U messenger -d messenger_crypto_test"
+          --health-interval 3s --health-timeout 3s --health-retries 20
+    env:
+      TEST_DATABASE: Host=127.0.0.1;Port=5432;Database=messenger_crypto_test;Username=messenger;Password=ci-ephemeral-only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+      - run: ./gradlew :core:test :app:assembleDebug :app:assembleDebugAndroidTest
+        working-directory: mobile
+      - run: dotnet restore server/Messenger.Api --locked-mode
+      - run: dotnet build server/Messenger.Api -c Release --no-restore
+      - run: python3 scripts/check-e2ee.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-dev-and-test-results
+          path: |
+            mobile/app/build/outputs/apk/debug/*.apk
+            mobile/core/build/test-results/
+          retention-days: 14

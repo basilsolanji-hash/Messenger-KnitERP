@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">knitERP Messenger · тэст</string>
+    <string name="messenger">Месенджар</string>
+    <string name="chats">Чаты</string>
+    <string name="settings">Налады</string>
+    <string name="test_chat">Тэставы суразмоўца</string>
+    <string name="local_demo">Лакальны тэст · на гэтым тэлефоне</string>
+    <string name="demo_description">Два тэставыя профілі абменьваюцца зашыфраванымі паведамленнямі на гэтай прыладзе. Падключэнне іншых тэлефонаў з’явіцца пазней.</string>
+    <string name="demo_welcome">Прывітанне! Гэта тэставы чат knitERP. Напішыце паведамленне — праверым шыфраванне і захаванне гісторыі на гэтым тэлефоне.</string>
+    <string name="demo_reply">Атрымана і расшыфравана. Гісторыя захавана на прыладзе 🔒</string>
+    <string name="message_hint">Паведамленне</string>
+    <string name="send">Адправіць</string>
+    <string name="back">Назад</string>
+    <string name="security">Код бяспекі</string>
+    <string name="security_description">Параўнайце ўсе 60 лічбаў на абедзвюх прыладах. У гэтай зборцы паказаны код двух лакальных тэставых профіляў.</string>
+    <string name="close">Закрыць</string>
+    <string name="language">Мова праграмы</string>
+    <string name="system_language">Як у сістэме</string>
+    <string name="privacy">Прыватнасць</string>
+    <string name="storage_protection">Гісторыя зашыфравана на прыладзе</string>
+    <string name="backup_off">Рэзервовае капіраванне адключана</string>
+    <string name="development_build">Тэставая версія 0.1.0</string>
+    <string name="no_remote_chats">Перапіска паміж тэлефонамі яшчэ не падключана</string>
+    <string name="storage_error">Не ўдалося адкрыць абароненае сховішча. Перазапусціце праграму. Аўтаматычны скід даных не выконваўся.</string>
+    <string name="send_error">Не ўдалося завяршыць адпраўку. Захаваная чарга будзе праверана пры наступным запуску.</string>
+    <string name="loading">Адкрываем абароненае сховішча…</string>
+    <string name="local_delivery">Дастаўлена ў лакальным тэсце</string>
+    <string name="logo_description">Лагатып knitERP</string>
+</resources>

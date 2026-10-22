@@ -102,6 +102,9 @@ public sealed class Transport(MessengerDb db, TimeProvider clock)
         Require(!await db.Blocks.AnyAsync(x => (x.OwnerId == actor.AccountId && x.TargetId == request.RecipientAccountId) ||
             (x.OwnerId == request.RecipientAccountId && x.TargetId == actor.AccountId), ct), "DELIVERY_UNAVAILABLE", 403);
         var now = clock.GetUtcNow();
+        // PostgreSQL timestamps have microsecond precision. Persist and return the same value
+        // on the first acceptance and on an idempotent retry loaded from the database.
+        now = now.AddTicks(-(now.Ticks % TimeSpan.TicksPerMicrosecond));
         var queue = db.Envelopes.Where(x => x.RecipientDeviceId == request.RecipientDeviceId && !x.Acknowledged && x.ExpiresAt > now && x.Ciphertext != null);
         Require(await queue.CountAsync(ct) < 10000 && (await queue.SumAsync(x => (long?)x.Ciphertext!.Length, ct) ?? 0) + request.Ciphertext.Length <= 100L * 1024 * 1024, "QUOTA_EXCEEDED", 409);
         var message = new Envelope { ClientMessageId = request.ClientMessageId, SenderAccountId = actor.AccountId,

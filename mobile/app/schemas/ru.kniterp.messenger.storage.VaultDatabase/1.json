@@ -1,0 +1,51 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "c3b815f8fd6918fb381121a983b380d6",
+    "entities": [
+      {
+        "tableName": "vault",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`profile` TEXT NOT NULL, `bucket` TEXT NOT NULL, `recordKey` TEXT NOT NULL, `value` BLOB NOT NULL, PRIMARY KEY(`profile`, `bucket`, `recordKey`))",
+        "fields": [
+          {
+            "fieldPath": "profile",
+            "columnName": "profile",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bucket",
+            "columnName": "bucket",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "recordKey",
+            "columnName": "recordKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "value",
+            "columnName": "value",
+            "affinity": "BLOB",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "profile",
+            "bucket",
+            "recordKey"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'c3b815f8fd6918fb381121a983b380d6')"
+    ]
+  }
+}

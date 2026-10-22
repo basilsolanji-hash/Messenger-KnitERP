@@ -85,6 +85,11 @@ public sealed class TransportTests : IAsyncLifetime
         var first = await transport.Send(alice, r, default);
         var again = await transport.Send(alice, r, default);
         Assert.Equal(first, again);
+        await using (var restarted = new MessengerDb(options))
+        {
+            var persistedRetry = await new Transport(restarted, TimeProvider.System).Send(alice, r, default);
+            Assert.Equal(first, persistedRetry); // Includes timestamps read back at PostgreSQL precision.
+        }
         var fault = await Assert.ThrowsAsync<ApiFault>(() => transport.Send(alice,
             r with { Ciphertext = new byte[32] }, default));
         Assert.Equal("IDEMPOTENCY_CONFLICT", fault.Code);

@@ -2,6 +2,10 @@
 **/obj/
 **/build/
 .gradle/
+.kotlin/
+.cxx/
+*.apk
+*.aab
 local.properties
 .env
 .secrets/
