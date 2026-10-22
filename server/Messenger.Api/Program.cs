@@ -6,6 +6,7 @@ using Messenger.Api;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -23,6 +24,45 @@ builder.Services.AddDbContext<MessengerDb>(o => o.UseNpgsql(builder.Configuratio
 builder.Services.AddScoped<Transport>();
 builder.Services.AddSingleton<Access>();
 builder.Services.AddSingleton<ConnectionRegistry>();
+builder.Services.AddSingleton<AuthSecrets>();
+builder.Services.AddSingleton<PhonePolicy>();
+builder.Services.AddSingleton<PinHasher>();
+builder.Services.AddScoped<AuthService>();
+switch (builder.Configuration["Auth:Sms:Provider"])
+{
+    // The fake keeps codes in memory and must never serve real users.
+    case "Fake" when builder.Environment.IsDevelopment():
+        builder.Services.AddSingleton<FakeSms>();
+        builder.Services.AddSingleton<ISmsSender>(s => s.GetRequiredService<FakeSms>());
+        break;
+    case "SmsRu":
+        if (builder.Configuration["Auth:Sms:SmsRu:ApiKey"] is not { Length: > 0 })
+            throw new InvalidOperationException("Set Auth__Sms__SmsRu__ApiKey in the server environment.");
+        builder.Services.AddHttpClient<ISmsSender, SmsRuSender>(SmsRuSender.HttpClientName, c =>
+        {
+            c.BaseAddress = new Uri("https://sms.ru/");
+            c.Timeout = TimeSpan.FromSeconds(15);
+        });
+        break;
+    default:
+        throw new InvalidOperationException("Set Auth:Sms:Provider to Fake (Development only) or SmsRu.");
+}
+_ = new AuthSecrets(builder.Configuration);
+foreach (var region in new PhonePolicy(builder.Configuration).Regions)
+    if (builder.Configuration.GetValue<long?>("Auth:Sms:CostKopecks:" + region) is not > 0)
+        throw new InvalidOperationException("Configure Auth:Sms:CostKopecks for every allowed region.");
+if (builder.Configuration.GetValue<long?>("Auth:Sms:Limits:DailyBudgetKopecks") is not > 0)
+    throw new InvalidOperationException("Configure Auth:Sms:Limits:DailyBudgetKopecks.");
+builder.Services.Configure<ForwardedHeadersOptions>(o =>
+{
+    // X-Forwarded-For is honoured only from explicitly listed reverse proxies, one hop deep.
+    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor;
+    o.ForwardLimit = 1;
+    o.KnownProxies.Clear();
+    o.KnownIPNetworks.Clear();
+    foreach (var proxy in builder.Configuration.GetSection("Auth:TrustedProxies").Get<string[]>() ?? [])
+        o.KnownProxies.Add(System.Net.IPAddress.Parse(proxy));
+});
 builder.Services.AddHostedService<QueueWorker>();
 builder.Services.AddSignalR(o => { o.MaximumReceiveMessageSize = 4096; o.EnableDetailedErrors = false; });
 builder.Services.AddOpenApi();
@@ -44,7 +84,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
         OnTokenValidated = async context =>
         {
             var db = context.HttpContext.RequestServices.GetRequiredService<MessengerDb>();
-            if (!await Access.IsActive(db, Access.Current(context.Principal!), context.HttpContext.RequestAborted))
+            var now = context.HttpContext.RequestServices.GetRequiredService<TimeProvider>().GetUtcNow();
+            if (!await Access.IsSessionActive(db, context.Principal!, now, context.HttpContext.RequestAborted))
                 context.Fail("Device revoked.");
         }
     };
@@ -64,13 +105,22 @@ builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 1024 * 1024)
 builder.Logging.AddFilter("Microsoft.AspNetCore", LogLevel.Warning);
 builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command", LogLevel.Warning);
 var app = builder.Build();
+app.UseForwardedHeaders();
 app.UseExceptionHandler(handler => handler.Run(async ctx =>
 {
     var exception = ctx.Features.Get<IExceptionHandlerFeature>()?.Error;
     var status = exception is ApiFault f ? f.Status : exception is BadHttpRequestException ? 400 : 500;
     var code = exception is ApiFault af ? af.Code : status == 400 ? "INVALID_REQUEST" : "INTERNAL_ERROR";
     ctx.Response.StatusCode = status;
-    await Results.Problem(statusCode: status, title: code, extensions: new Dictionary<string, object?> { ["code"] = code, ["traceId"] = ctx.TraceIdentifier }).ExecuteAsync(ctx);
+    var extensions = new Dictionary<string, object?> { ["code"] = code, ["traceId"] = ctx.TraceIdentifier };
+    if (exception is ApiFault { RetryAfter: { } retry })
+    {
+        var seconds = (long)Math.Ceiling(Math.Max(1, retry.TotalSeconds));
+        ctx.Response.Headers.RetryAfter = seconds.ToString(CultureInfo.InvariantCulture);
+        extensions["retryAfterSeconds"] = seconds;
+    }
+    if (exception is ApiFault { AttemptsRemaining: { } attempts }) extensions["attemptsRemaining"] = attempts;
+    await Results.Problem(statusCode: status, title: code, extensions: extensions).ExecuteAsync(ctx);
 }));
 app.UseAuthentication();
 app.UseAuthorization();
@@ -100,16 +150,12 @@ app.MapPost("/api/v1/dev/accounts/{accountId:guid}/replace-device", async (Guid 
     var rows = await db.Accounts.FromSqlInterpolated($"SELECT * FROM accounts WHERE \"Id\" = {accountId} FOR UPDATE").ToListAsync(ct);
     Transport.Require(rows.Count == 1, "NOT_FOUND", 404);
     var account = rows[0];
-    var old = await db.Devices.FromSqlInterpolated($"SELECT * FROM devices WHERE \"AccountId\" = {accountId} AND \"Active\" = TRUE ORDER BY \"Id\" FOR UPDATE").SingleAsync(ct);
     Transport.Require(!await db.Devices.AnyAsync(x => x.Id == request.DeviceId, ct), "DEVICE_ALREADY_EXISTS", 409);
-    old.Active = false; account.Generation++;
-    await db.SaveChangesAsync(ct); // Satisfy the one-active-device unique index before insert.
-    var device = new Device { Id = request.DeviceId, AccountId = accountId, Generation = account.Generation, RegistrationId = request.RegistrationId, IdentityKey = request.IdentityKey };
-    db.Devices.Add(device);
-    await db.Envelopes.Where(x => x.RecipientDeviceId == old.Id).ExecuteUpdateAsync(x => x.SetProperty(e => e.Ciphertext, (byte[]?)null), ct);
-    await db.Notifications.Where(x => x.DeviceId == old.Id).ExecuteDeleteAsync(ct);
-    await db.SaveChangesAsync(ct); await tx.CommitAsync(ct);
-    registry.Revoke(old.Id);
+    var device = new Device { Id = request.DeviceId, AccountId = accountId, RegistrationId = request.RegistrationId, IdentityKey = request.IdentityKey };
+    var old = await AuthService.ReplaceDevice(db, account, device, TimeProvider.System.GetUtcNow(), ct);
+    Transport.Require(old is not null, "NOT_FOUND", 404);
+    await tx.CommitAsync(ct);
+    registry.Revoke(old!.Value);
     return Results.Ok(access.Issue(account, device));
 });
 
@@ -126,7 +172,29 @@ app.MapPost("/api/v1/dev/accounts/{accountId:guid}/session", async (Guid account
     return Results.Ok(access.Issue(account!, device!));
 });
 
+// Public auth API. Separate from /api/v1/dev; its presence does not lift the Development-only guard above.
+var auth = app.MapGroup("/api/v1/auth").AddEndpointFilter(async (context, next) =>
+{
+    context.HttpContext.Response.Headers.CacheControl = "no-store";
+    return await next(context);
+});
+auth.MapPost("/sms/challenges", async (HttpContext c, SmsChallengeRequest r, AuthService s, CancellationToken ct) =>
+    Results.Ok(await s.CreateSmsChallenge(r, c.Connection.RemoteIpAddress, ct)));
+auth.MapPost("/sms/verify", async (SmsVerifyRequest r, AuthService s, CancellationToken ct) => Results.Ok(await s.VerifySms(r, ct)));
+auth.MapPost("/pin/verify", async (PinVerifyRequest r, AuthService s, CancellationToken ct) => Results.Ok(await s.VerifyPin(r, ct)));
+auth.MapPost("/refresh/challenges", async (HttpContext c, RefreshChallengeRequest r, AuthService s, CancellationToken ct) =>
+    Results.Ok(await s.CreateRefreshChallenge(r, c.Connection.RemoteIpAddress, ct)));
+auth.MapPost("/refresh", async (RefreshRequest r, AuthService s, CancellationToken ct) => Results.Ok(await s.Refresh(r, ct)));
+// Recovery codes are not implemented. Losing the PIN blocks transfer; there is no support or SMS bypass.
+auth.MapPost("/recovery", IResult () => throw new ApiFault(501, "RECOVERY_NOT_AVAILABLE"));
+
 var api = app.MapGroup("/api/v1").RequireAuthorization();
+api.MapPost("/auth/logout", async (HttpContext c, AuthService s, CancellationToken ct) =>
+{ await s.Logout(c.User, ct); return Results.NoContent(); });
+api.MapPut("/account/pin", async (HttpContext c, SetPinRequest r, AuthService s, CancellationToken ct) =>
+{ await s.SetPin(c.User, r, ct); return Results.NoContent(); });
+api.MapPost("/account/pin/disable", async (HttpContext c, DisablePinRequest r, AuthService s, CancellationToken ct) =>
+{ await s.DisablePin(c.User, r, ct); return Results.NoContent(); });
 api.MapGet("/me", async (HttpContext c, MessengerDb db, CancellationToken ct) =>
 {
     var actor = Access.Current(c.User);

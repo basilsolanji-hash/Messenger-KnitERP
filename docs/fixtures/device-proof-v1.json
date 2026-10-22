@@ -1,0 +1,19 @@
+{
+  "description": "Synthetic test vector for kniterp-device-proof-v1. TEST-ONLY key, never use outside tests. ECDSA signatures are randomized: a new signature over the same payload differs but must verify.",
+  "algorithm": "ECDSA P-256 with SHA-256 (Android: SHA256withECDSA), DER/ASN.1 signature, key as X.509 SubjectPublicKeyInfo DER",
+  "input": {
+    "operation": "activate",
+    "challengeId": "3f0c1a52-7d4e-4b8a-9c61-2e5f8a9b0c1d",
+    "nonceBase64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+    "expiresAt": "2026-10-22T10:20:00Z",
+    "phone": "+79001234567",
+    "deviceId": "0b6f3c2e-91d4-4f7a-8e25-6c3d9a1b7e40",
+    "registrationId": 4242,
+    "identityKeyBase64": "BRERERERERERERERERERERERERERERERERERERERERER",
+    "authKeySpkiBase64": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEUEz2/cgV2lAKWNEF66gT8fGDCqKU+OiNVUW7VEa2VFv2oEowye3+kuDMhUGlOboG8SM4XBkrgdPnzu6UpvXzdg=="
+  },
+  "payload": "kniterp-device-proof-v1\nop:activate\nchallenge:3f0c1a52-7d4e-4b8a-9c61-2e5f8a9b0c1d\nnonce:AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8\nexpires:1792664400\nphone:+79001234567\naccount:-\ntoken:-\ndevice:0b6f3c2e-91d4-4f7a-8e25-6c3d9a1b7e40\nregistration:4242\nidentity:BRERERERERERERERERERERERERERERERERERERERERER\nauthkey:JAzCi5U39Mg5-uWPlst9svIjvEPW7jYGaAXmfNZWwz4\n",
+  "payloadSha256Hex": "c4b2d2cafbf2cdea324520edd5387d07774ea04955568372d81a3f9443d890cf",
+  "signatureDerBase64": "MEUCIQDW3Cqbg+ctdJNN5/Sf7P9Rfq1Wq/5Y6NXmNuTFPCDg0gIgJ63XoxHSrvLjSXYIAQEhm7Xlldri/51to2p5I7+VWYY=",
+  "testOnlyPrivateKeyPkcs8Base64": "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgJ0iqUcFbiOVDxgdRI6EZFIBAhzMJQ3KxwwnXwkAoKDahRANCAARQTPb9yBXaUApY0QXrqBPx8YMKopT46I1VRbtURrZUW/agSjDJ7f6S4MyFQaU5ugbxIzhcGSuB0+fO7pSm9fN2"
+}

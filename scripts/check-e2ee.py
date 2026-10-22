@@ -28,9 +28,15 @@ def main():
     with tempfile.TemporaryDirectory(prefix="kniterp-e2ee-") as directory:
         env = os.environ.copy()
         env.update({"ASPNETCORE_ENVIRONMENT": "Development", "ASPNETCORE_URLS": url,
+                    # appsettings.json (auth region allowlist and limits) lives next to the built API.
+                    "ASPNETCORE_CONTENTROOT": str(root / "server/Messenger.Api/bin/Release/net10.0"),
                     "ConnectionStrings__Messenger": database, "Dev__AutoMigrate": "true",
                     "Dev__ProvisioningKey": secrets.token_urlsafe(48),
                     "Auth__SigningKey": base64.b64encode(secrets.token_bytes(32)).decode(),
+                    "Auth__PhoneIndexKey": base64.b64encode(secrets.token_bytes(32)).decode(),
+                    "Auth__SmsCodeKey": base64.b64encode(secrets.token_bytes(32)).decode(),
+                    "Auth__PinPepper": base64.b64encode(secrets.token_bytes(32)).decode(),
+                    "Auth__Sms__Provider": "Fake",
                     "Dev__DataProtectionPath": str(Path(directory) / "protection")})
         output = Path(directory) / "server.log"
         with output.open("wb") as log:

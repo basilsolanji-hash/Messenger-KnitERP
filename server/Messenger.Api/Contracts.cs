@@ -26,4 +26,6 @@ public sealed class ApiFault(int status, string code) : Exception(code)
 {
     public int Status { get; } = status;
     public string Code { get; } = code;
+    public TimeSpan? RetryAfter { get; init; }
+    public int? AttemptsRemaining { get; init; }
 }

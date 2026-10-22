@@ -36,9 +36,118 @@ namespace Messenger.Api.Migrations
                     b.Property<int>("Generation")
                         .HasColumnType("integer");
 
+                    b.Property<byte[]>("PhoneIndex")
+                        .HasColumnType("bytea");
+
+                    b.Property<int>("PinFailures")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("PinHash")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<DateTimeOffset?>("PinLockedUntil")
+                        .HasColumnType("timestamp with time zone");
+
                     b.HasKey("Id");
 
+                    b.HasIndex("PhoneIndex")
+                        .IsUnique()
+                        .HasFilter("\"PhoneIndex\" IS NOT NULL");
+
                     b.ToTable("accounts", (string)null);
+                });
+
+            modelBuilder.Entity("Messenger.Api.AuthChallenge", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer");
+
+                    b.Property<byte[]>("AuthKey")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<byte[]>("CodeVerifier")
+                        .HasColumnType("bytea");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("DeviceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte[]>("IdentityKey")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<byte[]>("Nonce")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<int>("Operation")
+                        .HasColumnType("integer");
+
+                    b.Property<byte[]>("PhoneIndex")
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("Region")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.Property<int>("RegistrationId")
+                        .HasColumnType("integer");
+
+                    b.Property<byte[]>("RequestHash")
+                        .HasColumnType("bytea");
+
+                    b.Property<Guid?>("RequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("State")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAt");
+
+                    b.HasIndex("RequestId")
+                        .IsUnique()
+                        .HasFilter("\"RequestId\" IS NOT NULL");
+
+                    b.HasIndex("PhoneIndex", "CreatedAt");
+
+                    b.HasIndex("State", "CreatedAt");
+
+                    b.ToTable("auth_challenges", (string)null);
+                });
+
+            modelBuilder.Entity("Messenger.Api.AuthCounter", b =>
+                {
+                    b.Property<string>("Key")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<long>("Count")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset>("WindowEnd")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("WindowEnd");
+
+                    b.ToTable("auth_counters", (string)null);
                 });
 
             modelBuilder.Entity("Messenger.Api.Block", b =>
@@ -65,6 +174,9 @@ namespace Messenger.Api.Migrations
 
                     b.Property<bool>("Active")
                         .HasColumnType("boolean");
+
+                    b.Property<byte[]>("AuthKey")
+                        .HasColumnType("bytea");
 
                     b.Property<int>("Generation")
                         .HasColumnType("integer");
@@ -237,6 +349,80 @@ namespace Messenger.Api.Migrations
                     b.ToTable("prekeys", (string)null);
                 });
 
+            modelBuilder.Entity("Messenger.Api.RefreshFamily", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("AbsoluteExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("AuthenticatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("DeviceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RevokedReason")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("DeviceId");
+
+                    b.ToTable("refresh_families", (string)null);
+                });
+
+            modelBuilder.Entity("Messenger.Api.RefreshToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("ConsumedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ConsumedByChallenge")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("FamilyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ReplacedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<byte[]>("Verifier")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAt");
+
+                    b.HasIndex("FamilyId");
+
+                    b.ToTable("refresh_tokens", (string)null);
+                });
+
             modelBuilder.Entity("Messenger.Api.Device", b =>
                 {
                     b.HasOne("Messenger.Api.Account", null)
@@ -266,6 +452,24 @@ namespace Messenger.Api.Migrations
                     b.HasOne("Messenger.Api.Device", null)
                         .WithMany()
                         .HasForeignKey("DeviceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Messenger.Api.RefreshFamily", b =>
+                {
+                    b.HasOne("Messenger.Api.Device", null)
+                        .WithMany()
+                        .HasForeignKey("DeviceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Messenger.Api.RefreshToken", b =>
+                {
+                    b.HasOne("Messenger.Api.RefreshFamily", null)
+                        .WithMany()
+                        .HasForeignKey("FamilyId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

@@ -16,6 +16,11 @@ content = '\n'.join([
     'Auth__SigningKey=' + base64.b64encode(secrets.token_bytes(48)).decode(),
     'Dev__ProvisioningKey=' + secrets.token_urlsafe(48),
     'Dev__AutoMigrate=true',
+    'Auth__PhoneIndexKey=' + base64.b64encode(secrets.token_bytes(32)).decode(),
+    'Auth__SmsCodeKey=' + base64.b64encode(secrets.token_bytes(32)).decode(),
+    'Auth__PinPepper=' + base64.b64encode(secrets.token_bytes(32)).decode(),
+    # Development never sends paid SMS. SMS.ru is configured only on a separately approved stand.
+    'Auth__Sms__Provider=Fake',
 ]) + '\n'
 try:
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)

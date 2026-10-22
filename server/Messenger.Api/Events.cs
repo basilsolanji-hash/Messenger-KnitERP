@@ -5,14 +5,14 @@ using Microsoft.EntityFrameworkCore;
 namespace Messenger.Api;
 
 [Authorize]
-public sealed class EventsHub(ConnectionRegistry registry, MessengerDb db) : Hub
+public sealed class EventsHub(ConnectionRegistry registry, MessengerDb db, TimeProvider clock) : Hub
 {
     public static string Group(Guid deviceId) => "device:" + deviceId;
     public override async Task OnConnectedAsync()
     {
         var actor = Access.Current(Context.User!);
-        registry.Add(Context.ConnectionId, actor.DeviceId, Context.Abort);
-        if (!await Access.IsActive(db, actor, Context.ConnectionAborted))
+        registry.Add(Context.ConnectionId, actor.DeviceId, Access.SessionId(Context.User!), Context.Abort);
+        if (!await Access.IsSessionActive(db, Context.User!, clock.GetUtcNow(), Context.ConnectionAborted))
         {
             registry.Remove(Context.ConnectionId);
             Context.Abort();
@@ -30,8 +30,9 @@ public sealed class EventsHub(ConnectionRegistry registry, MessengerDb db) : Hub
 }
 
 public sealed class QueueWorker(IServiceScopeFactory scopes, IHubContext<EventsHub> hub,
-    TimeProvider clock, ILogger<QueueWorker> logger) : BackgroundService
+    TimeProvider clock, ConnectionRegistry registry, ILogger<QueueWorker> logger) : BackgroundService
 {
+    private DateTimeOffset nextCleanup;
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
@@ -86,5 +87,25 @@ public sealed class QueueWorker(IServiceScopeFactory scopes, IHubContext<EventsH
         await db.Envelopes.Where(x => x.RetainUntil <= now).ExecuteDeleteAsync(ct);
         await db.KeyClaims.Where(x => x.ExpiresAt <= now).ExecuteDeleteAsync(ct);
         await db.Notifications.Where(x => x.ExpiresAt <= now).ExecuteDeleteAsync(ct);
+        await CloseRevoked(db, now, ct);
+        if (now >= nextCleanup)
+        {
+            await AuthService.Cleanup(db, now, ct);
+            nextCleanup = now.AddMinutes(1);
+        }
+    }
+
+    // Every instance runs this for its own SignalR connections, so a replacement or logout handled by another
+    // instance still closes the old phone's socket within about a second.
+    private async Task CloseRevoked(MessengerDb db, DateTimeOffset now, CancellationToken ct)
+    {
+        var (devices, sessions) = registry.Snapshot();
+        if (devices.Length == 0) return;
+        var inactive = await db.Devices.Where(x => devices.Contains(x.Id) && !x.Active).Select(x => x.Id).ToArrayAsync(ct);
+        foreach (var id in inactive) registry.Revoke(id);
+        if (sessions.Length == 0) return;
+        var live = await db.RefreshFamilies.Where(x => sessions.Contains(x.Id) && x.RevokedAt == null && x.AbsoluteExpiresAt > now)
+            .Select(x => x.Id).ToArrayAsync(ct);
+        foreach (var id in sessions.Except(live)) registry.RevokeSession(id);
     }
 }

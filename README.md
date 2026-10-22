@@ -47,6 +47,8 @@ docker compose down
 
 Остальные API требуют `Authorization: Bearer <accessToken>`. OpenAPI доступен по `/openapi/v1.json` с таким же заголовком. Публичные ключи и сообщения передаются как base64-строки; приватных ключей в API нет.
 
+Серверная авторизация v1 (SMS, PIN, подпись устройства, refresh): [docs/AUTH.md](docs/AUTH.md), контракт [docs/API_AUTH.md](docs/API_AUTH.md), клиенту — [docs/ANDROID_AUTH.md](docs/ANDROID_AUTH.md). В Development работает только fake-провайдер SMS без сети. Существующий `.env` без `Auth__PhoneIndexKey`, `Auth__SmsCodeKey`, `Auth__PinPepper` и `Auth__Sms__Provider` нужно дополнить по `.env.example`.
+
 Запуск вне `Development` намеренно завершается ошибкой. Этот предохранитель нельзя убирать до внедрения SMS, PIN, refresh rotation, подтверждения владения устройством и проверки безопасности.
 
 ## Сборка и проверки
