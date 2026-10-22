@@ -53,7 +53,7 @@ def main():
                 test_env = os.environ.copy()
                 test_env.update({"MESSENGER_TEST_URL": url, "DEV_PROVISIONING_KEY": env["Dev__ProvisioningKey"]})
                 wrapper = "gradlew.bat" if os.name == "nt" else "./gradlew"
-                subprocess.run([wrapper, ":core:serverSmoke", "--no-daemon"], cwd=root / "mobile", env=test_env, check=True)
+                subprocess.run([wrapper, ":core:serverSmoke", ":network:serverSmoke", "--no-daemon"], cwd=root / "mobile", env=test_env, check=True)
                 print("PASS: libsignal -> HTTP -> PostgreSQL -> offline inbox -> decrypt -> ACK -> encrypted reply")
             finally:
                 server.terminate()

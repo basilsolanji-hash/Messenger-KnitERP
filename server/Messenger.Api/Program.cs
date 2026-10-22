@@ -113,12 +113,28 @@ app.MapPost("/api/v1/dev/accounts/{accountId:guid}/replace-device", async (Guid 
     return Results.Ok(access.Issue(account, device));
 });
 
+// Operator-only renewal for the SAME synthetic phone and keys. No admin credential reaches Android.
+app.MapPost("/api/v1/dev/accounts/{accountId:guid}/session", async (Guid accountId, HttpContext context,
+    ProvisionRequest request, MessengerDb db, Access access, IConfiguration config, CancellationToken ct) =>
+{
+    Access.ProvisioningKey(context, config);
+    ValidateProvision(request);
+    var account = await db.Accounts.AsNoTracking().SingleOrDefaultAsync(x => x.Id == accountId, ct);
+    var device = await db.Devices.AsNoTracking().SingleOrDefaultAsync(x => x.Id == request.DeviceId && x.AccountId == accountId, ct);
+    Transport.Require(account is not null && device is not null && device.Active && device.Generation == account.Generation &&
+        device.RegistrationId == request.RegistrationId && device.IdentityKey.SequenceEqual(request.IdentityKey), "DEVICE_MISMATCH", 409);
+    return Results.Ok(access.Issue(account!, device!));
+});
+
 var api = app.MapGroup("/api/v1").RequireAuthorization();
 api.MapGet("/me", async (HttpContext c, MessengerDb db, CancellationToken ct) =>
 {
     var actor = Access.Current(c.User);
     var account = await db.Accounts.AsNoTracking().SingleAsync(x => x.Id == actor.AccountId, ct);
-    return new { actor.AccountId, actor.DeviceId, actor.Generation, account.DisplayName };
+    var device = await db.Devices.AsNoTracking().SingleAsync(x => x.Id == actor.DeviceId, ct);
+    var expiration = long.Parse(c.User.FindFirst("exp")!.Value, CultureInfo.InvariantCulture);
+    return new { actor.AccountId, actor.DeviceId, actor.Generation, account.DisplayName,
+        device.RegistrationId, device.IdentityKey, ExpiresAt = DateTimeOffset.FromUnixTimeSeconds(expiration) };
 });
 api.MapPost("/keys/bundles", async (HttpContext c, PublishBundleRequest r, Transport t, CancellationToken ct) =>
 { await t.Publish(Access.Current(c.User), r, ct); return Results.NoContent(); });

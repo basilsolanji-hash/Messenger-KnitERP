@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import ru.kniterp.messenger.core.*
 import ru.kniterp.messenger.storage.RoomVault
 import ru.kniterp.messenger.storage.VaultDatabase
+import ru.kniterp.messenger.storage.AppDatabase
 import java.util.UUID
 
 data class DemoState(
@@ -35,7 +36,7 @@ class DemoModel(application: Application) : AndroidViewModel(application) {
     private suspend fun load(welcome: String) {
         try {
             val value = withContext(Dispatchers.IO) {
-                db = VaultDatabase.open(getApplication())
+                db = AppDatabase.get(getApplication())
                 alice = client("demo-local")
                 bob = client("demo-peer")
                 // Retry saved envelopes after an interrupted process before preparing new ones.
@@ -90,5 +91,4 @@ class DemoModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
-    override fun onCleared() { if (::db.isInitialized) db.close(); super.onCleared() }
 }

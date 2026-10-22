@@ -17,4 +17,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "KnitERPMessenger"
-include(":core", ":app")
+include(":core", ":network", ":app")

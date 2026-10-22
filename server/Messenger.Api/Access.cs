@@ -24,7 +24,8 @@ public sealed class Access(IConfiguration config, TimeProvider clock)
     public SessionResponse Issue(Account a, Device d)
     {
         var now = clock.GetUtcNow();
-        var expires = now.AddMinutes(15);
+        // JWT NumericDate has whole-second precision. Return exactly the signed expiry.
+        var expires = DateTimeOffset.FromUnixTimeSeconds(now.AddMinutes(15).ToUnixTimeSeconds());
         var jwt = new JwtSecurityToken(Issuer, Audience,
             [new Claim("sub", a.Id.ToString()), new Claim("device", d.Id.ToString()),
              new Claim("generation", d.Generation.ToString(CultureInfo.InvariantCulture)),

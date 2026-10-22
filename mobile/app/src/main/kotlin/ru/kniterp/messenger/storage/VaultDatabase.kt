@@ -51,3 +51,11 @@ class RoomVault(private val db: VaultDatabase, private val profile: String) : Va
         try { block(records) } finally { active = false }
     })
 }
+
+/** One application-lifetime connection pool serializes writes from demo and network profiles. */
+object AppDatabase {
+    @Volatile private var database: VaultDatabase? = null
+    fun get(context: Context): VaultDatabase = database ?: synchronized(this) {
+        database ?: VaultDatabase.open(context.applicationContext).also { database = it }
+    }
+}

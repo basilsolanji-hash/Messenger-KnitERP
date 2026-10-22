@@ -33,7 +33,7 @@ jobs:
       - uses: android-actions/setup-android@v3
       - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
       - uses: gradle/actions/setup-gradle@v4
-      - run: ./gradlew :core:test :app:assembleDebug :app:assembleDebugAndroidTest
+      - run: ./gradlew :core:test :network:test :app:assembleDebug :app:assembleDebugAndroidTest
         working-directory: mobile
       - run: dotnet restore server/Messenger.Api --locked-mode
       - run: dotnet build server/Messenger.Api -c Release --no-restore
@@ -46,4 +46,5 @@ jobs:
             mobile/app/build/outputs/apk/debug/*.apk
             mobile/app/build/outputs/apk/androidTest/debug/*.apk
             mobile/core/build/test-results/
+            mobile/network/build/test-results/
           retention-days: 14

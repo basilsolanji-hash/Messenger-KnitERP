@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- This build runs a local encrypted demo; no network, contacts, microphone or SMS permissions. -->
+    <!-- Network traffic is initiated only after explicit test-server setup. No contacts/SMS/microphone permissions. -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <application android:allowBackup="false" android:fullBackupContent="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:label="@string/app_name" android:theme="@style/AppTheme" android:localeConfig="@xml/locales_config"

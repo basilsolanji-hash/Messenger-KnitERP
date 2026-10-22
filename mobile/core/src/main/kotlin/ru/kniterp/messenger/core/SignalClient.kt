@@ -46,6 +46,7 @@ class SignalClient(private val vault: Vault) {
     }
     fun localDevice(): Device = vault.transaction { local(it) }
     fun deviceOrNull(): Device? = vault.transaction { it.read<Device>("local", "device") }
+    fun hasPeer(accountId: String): Boolean = vault.transaction { it.get("peer", Wire.id(accountId)) != null }
     private fun local(r: Records) = requireNotNull(r.read<Device>("local", "device")) { "Account is not bound" }
     private fun address(accountId: String) = SignalProtocolAddress(Wire.id(accountId), 1)
 
@@ -94,6 +95,7 @@ class SignalClient(private val vault: Vault) {
             if (it.content != content) throw MessageConflict()
             return@transaction it.request
         }
+        require(r.keys("pending").size < 1000) { "Local outbox is full" }
         val encoded = Wire.json.encodeToString(content).toByteArray(Charsets.UTF_8)
         val cipher = try { SessionCipher(SignalStore(r), address(me.accountId), address(peerAccountId)).encrypt(encoded) }
         finally { encoded.fill(0) }
@@ -104,7 +106,11 @@ class SignalClient(private val vault: Vault) {
         append(r, id, peerAccountId, true, text)
         outgoing
     }
-    fun pending(): List<Outgoing> = vault.transaction { r -> r.keys("pending").map { requireNotNull(r.read<Outgoing>("pending", it)) } }
+    fun pending(limit: Int = 1000): List<Outgoing> = vault.transaction { r ->
+        require(limit in 1..1000)
+        r.keys("pending").take(limit).map { requireNotNull(r.read<Outgoing>("pending", it)) }
+    }
+    fun pendingIds(): Set<String> = vault.transaction { it.keys("pending").toSet() }
     fun accepted(id: String) = vault.transaction { r ->
         require(r.get("outgoing", Wire.id(id)) != null)
         r.delete("pending", id)

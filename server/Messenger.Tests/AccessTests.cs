@@ -40,9 +40,10 @@ public sealed class AccessTests
             ValidateAudience = true, ValidAudience = Access.Audience,
             ValidateIssuerSigningKey = true, IssuerSigningKey = new SymmetricSecurityKey(key),
             ValidateLifetime = true, ClockSkew = TimeSpan.Zero, ValidAlgorithms = [SecurityAlgorithms.HmacSha256]
-        }, out _);
+        }, out var validated);
         Assert.Equal(new Actor(account.Id, device.Id, 7), Access.Current(principal));
-        Assert.Equal(clock.GetUtcNow().AddMinutes(15), result.ExpiresAt);
+        Assert.Equal(new DateTimeOffset(validated.ValidTo, TimeSpan.Zero), result.ExpiresAt);
+        Assert.InRange(result.ExpiresAt, clock.GetUtcNow().AddMinutes(15).AddSeconds(-1), clock.GetUtcNow().AddMinutes(15));
         Assert.Throws<SecurityTokenSignatureKeyNotFoundException>(() => handler.ValidateToken(result.AccessToken,
             new TokenValidationParameters { ValidateIssuer = true, ValidIssuer = Access.Issuer,
                 ValidateAudience = true, ValidAudience = Access.Audience,

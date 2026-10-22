@@ -1,0 +1,14 @@
+Kotlin/JVM: 17 core + 9 network tests passed, 0 failed/errors/skipped.
+Core: SignalClientTest (12), DeliveryTest (5).
+Network: EnrollmentTest (2), PinnedApiTest (7).
+Gradle command: :core:test :network:test :app:assembleDebug :app:assembleDebugAndroidTest
+BUILD SUCCESSFUL (57 s), JDK 21, Gradle 8.14.3.
+
+HTTP checks: :core:serverSmoke :network:serverSmoke --offline --no-daemon
+BUILD SUCCESSFUL (15 s); one test per module.
+Actual ASP.NET Core 10.0.13, PostgreSQL 18.6/PGlite 0.5.11 over pglite-socket 0.2.14 TCP.
+Typed MessageApi, persistent Delivery controller, encrypted offline exchange, immutable retry, lost ACK/restart, reply, safety numbers, /me key binding and expiry, same-phone session renewal, mismatched identity renewal rejected (409).
+
+Backend: Release API build passed, 0 warnings/errors. Category=Unit: 3 passed, 0 failed/skipped.
+Operator CLI: Python syntax, --help, origin/pin validation checked. Complete CLI -> pinned HTTPS -> backend provisioning not executed.
+Two physical phones, public HTTPS/Beget, full PostgreSQL concurrency and Google Play not verified.
