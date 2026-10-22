@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">knitERP Messenger · тест</string>
-    <string name="messenger">Мессенджер</string>
+    <string name="brand_name">Ось</string>
+    <string name="app_name">Ось коммуникации · тест</string>
+    <string name="messenger">Коммуникации</string>
     <string name="chats">Чаты</string>
     <string name="settings">Настройки</string>
     <string name="test_chat">Тестовый собеседник</string>
     <string name="local_demo">Локальный тест · на этом телефоне</string>
     <string name="demo_description">Локальный тест двух профилей. Для связи двух телефонов откройте закрытый тест сервера в настройках.</string>
-    <string name="demo_welcome">Привет! Это тестовый чат knitERP. Напишите сообщение — проверим шифрование и сохранение истории на этом телефоне.</string>
+    <string name="demo_welcome">Привет! Это тестовый чат Ось. Напишите сообщение — проверим шифрование и сохранение истории на этом телефоне.</string>
     <string name="demo_reply">Получено и расшифровано. История сохранена на устройстве 🔒</string>
     <string name="message_hint">Сообщение</string>
     <string name="send">Отправить</string>
@@ -26,7 +27,7 @@
     <string name="send_error">Не удалось завершить отправку. Сохранённая очередь будет проверена при следующем запуске.</string>
     <string name="loading">Открываем защищённое хранилище…</string>
     <string name="local_delivery">Доставлено в локальном тесте</string>
-    <string name="logo_description">Логотип knitERP</string>
+    <string name="logo_description">Логотип Ось</string>
     <string name="net_title">Закрытый тест сервера</string>
     <string name="net_notice">Стенд для синтетических данных. Индивидуальную сессию на 15 минут выдаёт оператор. Это ещё не SMS-регистрация.</string>
     <string name="net_step_request">1. Запрос для оператора</string>

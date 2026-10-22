@@ -1,0 +1,531 @@
+openapi: 3.0.3
+info:
+  title: Ось коммуникации — API внешней интеграции
+  version: 0.1.0-draft
+  description: ПРОЕКТ КОНТРАКТА. Все маршруты этого файла пока не реализованы. API определяет только сторону
+    мессенджера; внешняя система реализует отдельный адаптер. Существующие auth/messages/inbox API не
+    описаны этим файлом и не меняются. Tenant определяется credentials, а не полем запроса. HTTPS обязателен.
+x-implementation-status: proposed
+security:
+- integrationBearer: []
+tags:
+- name: Links
+- name: References
+paths:
+  /api/v1/integrations/os/link-challenges:
+    post:
+      tags:
+      - Links
+      operationId: createOsLinkChallenge
+      summary: Запрос связи аккаунта с пользователем внешней системы
+      description: Scope links:write. Внешняя система должна подтвердить, что externalUserId принадлежит
+        её текущему пользователю. Не связывает аккаунты автоматически. TTL 5 минут, одноразовое подтверждение.
+        Идемпотентный ответ с секретом хранится только зашифрованным до потребления/истечения challenge.
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - externalUserId
+              properties:
+                externalUserId:
+                  $ref: '#/components/schemas/ExternalId'
+      responses:
+        '201':
+          description: Один и тот же ещё действующий challenge при безопасном повторе
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkChallenge'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '410':
+          $ref: '#/components/responses/Gone'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/integrations/os/link-challenges/{challengeId}/confirm:
+    post:
+      tags:
+      - Links
+      operationId: confirmOsLink
+      security:
+      - deviceBearer: []
+      description: Только подтверждённая сессия телефона с активным sid и свежей аутентификацией. UI явно
+        показывает организацию и внешнюю учётную запись. Проверка verifier, tenant, TTL и потребление
+        атомарны. Сервисный токен не подходит. Повтор уже потреблённого challenge возвращает 409; связь
+        можно проверить отдельно.
+      parameters:
+      - $ref: '#/components/parameters/ChallengeId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - confirmationSecret
+              properties:
+                confirmationSecret:
+                  type: string
+                  pattern: ^[A-Za-z0-9_-]{43}$
+                  description: 32 случайных байта в canonical base64url без padding; не передавать в URL/логах
+      responses:
+        '200':
+          description: Подтверждённая связь
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Link'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '410':
+          $ref: '#/components/responses/Gone'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/integrations/os/users/{externalUserId}/link:
+    parameters:
+    - name: externalUserId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/ExternalId'
+    get:
+      tags:
+      - Links
+      operationId: getOsUserLink
+      description: Scope links:read; только организация текущих credentials. Чужие/отсутствующие связи
+        дают одинаковый 404.
+      responses:
+        '200':
+          description: Связь пользователя своей организации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Link'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    delete:
+      tags:
+      - Links
+      operationId: revokeOsUserLink
+      description: Scope links:write. Идемпотентный отзыв связи в своей организации; личный аккаунт и
+        историю не удаляет.
+      responses:
+        '204':
+          description: Связь отключена или уже отсутствовала в текущей организации
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/integrations/os/me/links/{linkId}:
+    delete:
+      tags:
+      - Links
+      operationId: revokeMyOsLink
+      security:
+      - deviceBearer: []
+      description: Отзыв пользователем своей связи; чужой linkId не даёт доступ и не раскрывает чужую
+        организацию.
+      parameters:
+      - name: linkId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '204':
+          description: Собственная связь отключена или уже отсутствовала
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/integrations/os/references:
+    post:
+      tags:
+      - References
+      operationId: createOsReference
+      description: Scope references:write. Только минимальная ссылка на объект; не принимает текст чата,
+        документы, суммы, имена заказчиков, access tokens и произвольные redirect URLs. referenceId не
+        является разрешением на чтение объекта ERP.
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - kind
+              - externalObjectId
+              - audienceExternalUserIds
+              properties:
+                kind:
+                  $ref: '#/components/schemas/ReferenceKind'
+                externalObjectId:
+                  $ref: '#/components/schemas/ExternalId'
+                audienceExternalUserIds:
+                  type: array
+                  minItems: 1
+                  maxItems: 256
+                  uniqueItems: true
+                  items:
+                    $ref: '#/components/schemas/ExternalId'
+                  description: Явный список получателей ссылки в своей организации; не создаёт групповой
+                    чат
+      responses:
+        '201':
+          description: Ссылка зарегистрирована; повтор с тем же ключом/телом возвращает ту же ссылку
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reference'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/integrations/os/references/{referenceId}:
+    get:
+      tags:
+      - References
+      operationId: resolveOsReference
+      security:
+      - deviceBearer: []
+      description: Только активная связь пользователя с нужной организацией и разрешённый контекст. Повторная
+        проверка при каждом запросе, закрытый отказ при отзыве прав. ERP отдельно проверяет доступ к самому
+        объекту. Не выполняет сетевой redirect. Дополнительно externalUserId активной связи должен входить
+        в явно заданный audience этой ссылки.
+      parameters:
+      - name: referenceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Минимальные метаданные ссылки, без содержимого объекта
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reference'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    delete:
+      tags:
+      - References
+      operationId: revokeOsReference
+      description: Scope references:write. Идемпотентный отзыв ссылки своей организации; сообщения и ERP-объект
+        не удаляет.
+      parameters:
+      - name: referenceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '204':
+          description: Ссылка отозвана или уже отсутствовала в текущей организации
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/integrations/os/link-challenges/{challengeId}/preview:
+    post:
+      tags:
+      - Links
+      operationId: previewOsLink
+      security:
+      - deviceBearer: []
+      description: Проверяет confirmation secret и TTL, не потребляя challenge. Возвращает подтверждённые
+        сервером организацию и externalUserId для экрана согласия. Требует активного телефона и ограничения
+        попыток.
+      parameters:
+      - $ref: '#/components/parameters/ChallengeId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - confirmationSecret
+              properties:
+                confirmationSecret:
+                  type: string
+                  pattern: ^[A-Za-z0-9_-]{43}$
+                  description: 32 случайных байта в canonical base64url без padding; не передавать в URL/логах
+      responses:
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '410':
+          $ref: '#/components/responses/Gone'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '200':
+          description: Данные для явного согласия; Cache-Control no-store
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - challengeId
+                - organizationName
+                - externalUserId
+                - expiresAt
+                properties:
+                  challengeId:
+                    type: string
+                    format: uuid
+                  organizationName:
+                    type: string
+                    minLength: 1
+                    maxLength: 128
+                  externalUserId:
+                    $ref: '#/components/schemas/ExternalId'
+                  expiresAt:
+                    type: string
+                    format: date-time
+components:
+  securitySchemes:
+    integrationBearer:
+      type: http
+      scheme: bearer
+      description: Отдельные ограниченные служебные credentials на одну организацию. Выдача, срок действия,
+        ротация и отзыв реализуются сервером мессенджера отдельно. Не является JWT телефона или административным
+        provisioning secret.
+    deviceBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Действующая пользовательская сессия мессенджера; активные device/generation/sid обязательны
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Scoped по организации и operation; повтор с другим телом даёт 409
+    ChallengeId:
+      name: challengeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    ExternalId:
+      type: string
+      minLength: 1
+      maxLength: 128
+      description: Непрозрачный стабильный ID внешней системы. Без управляющих символов, нормализации,
+        парсинга структуры и использования как URL/SQL. Параметр пути передаётся percent-encoded.
+    ReferenceKind:
+      type: string
+      enum:
+      - order
+      - production_task
+      - document
+    LinkChallenge:
+      type: object
+      additionalProperties: false
+      required:
+      - challengeId
+      - confirmationSecret
+      - expiresAt
+      - externalUserId
+      properties:
+        challengeId:
+          type: string
+          format: uuid
+        confirmationSecret:
+          type: string
+          pattern: ^[A-Za-z0-9_-]{43}$
+          description: Секрет подтверждения; не класть в URL/логи; Cache-Control no-store
+        expiresAt:
+          type: string
+          format: date-time
+        externalUserId:
+          $ref: '#/components/schemas/ExternalId'
+    Link:
+      type: object
+      additionalProperties: false
+      required:
+      - linkId
+      - externalUserId
+      - messengerAccountId
+      - state
+      properties:
+        linkId:
+          type: string
+          format: uuid
+        externalUserId:
+          $ref: '#/components/schemas/ExternalId'
+        messengerAccountId:
+          type: string
+          format: uuid
+        state:
+          type: string
+          enum:
+          - active
+          - revoked
+    Reference:
+      type: object
+      additionalProperties: false
+      required:
+      - referenceId
+      - kind
+      - externalObjectId
+      properties:
+        referenceId:
+          type: string
+          format: uuid
+        kind:
+          $ref: '#/components/schemas/ReferenceKind'
+        externalObjectId:
+          $ref: '#/components/schemas/ExternalId'
+    Problem:
+      type: object
+      required:
+      - status
+      - code
+      properties:
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        code:
+          type: string
+          enum:
+          - INVALID_REQUEST
+          - UNAUTHORIZED
+          - SCOPE_REQUIRED
+          - REAUTH_REQUIRED
+          - LINK_NOT_ALLOWED
+          - NOT_FOUND
+          - IDEMPOTENCY_CONFLICT
+          - LINK_ALREADY_BOUND
+          - CHALLENGE_USED
+          - CHALLENGE_EXPIRED
+          - RATE_LIMITED
+        traceId:
+          type: string
+          maxLength: 128
+        retryAfterSeconds:
+          type: integer
+          minimum: 0
+  responses:
+    InvalidRequest:
+      description: 400 INVALID_REQUEST
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Unauthorized:
+      description: 401 UNAUTHORIZED — токен отсутствует, истёк или отозван
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Forbidden:
+      description: 403 SCOPE_REQUIRED / REAUTH_REQUIRED / LINK_NOT_ALLOWED
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    NotFound:
+      description: 404 NOT_FOUND, в том числе чужая организация без раскрытия её существования
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Conflict:
+      description: 409 IDEMPOTENCY_CONFLICT / LINK_ALREADY_BOUND / CHALLENGE_USED
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Gone:
+      description: 410 CHALLENGE_EXPIRED
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    RateLimited:
+      description: 429 RATE_LIMITED
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+            minimum: 0
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'

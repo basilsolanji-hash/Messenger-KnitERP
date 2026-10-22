@@ -38,7 +38,7 @@ import ru.kniterp.messenger.network.TestConnection
     LaunchedEffect(state.queuedId) { if (state.queuedId.isNotEmpty()) draft = "" }
     fun copyPublic(value: String) {
         (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
-            .setPrimaryClip(ClipData.newPlainText("knitERP", value))
+            .setPrimaryClip(ClipData.newPlainText(context.getString(R.string.brand_name), value))
     }
     LazyColumn(Modifier.fillMaxSize().imePadding(), contentPadding = PaddingValues(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)) {

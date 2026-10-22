@@ -1,13 +1,11 @@
 package ru.kniterp.messenger
 
-import android.graphics.BitmapFactory
 import android.os.Bundle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -28,8 +26,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -43,7 +39,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContent { KnitMessenger() }
+        setContent { OsMessenger() }
     }
 }
 
@@ -56,7 +52,7 @@ private val scheme = lightColorScheme(primary = Teal, onPrimary = Color.White, s
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun KnitMessenger(model: DemoModel = viewModel()) {
+private fun OsMessenger(model: DemoModel = viewModel()) {
     val state by model.state.collectAsState()
     val context = LocalContext.current
     LaunchedEffect(Unit) { model.start(context.getString(R.string.demo_welcome)) }
@@ -121,14 +117,11 @@ private fun KnitMessenger(model: DemoModel = viewModel()) {
 }
 
 @Composable private fun Brand() {
-    val context = LocalContext.current
-    val bitmap = remember { context.assets.open("knitERP_logo_selected.png").use { BitmapFactory.decodeStream(it).asImageBitmap() } }
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Image(bitmap, stringResource(R.string.logo_description), Modifier.size(42.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xFF171717)), contentScale = ContentScale.Fit)
-        Column {
-            Text("knitERP", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
-            Text(stringResource(R.string.messenger), color = Teal, style = MaterialTheme.typography.labelMedium)
-        }
+    Column {
+        Text(stringResource(R.string.brand_name), fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.headlineMedium)
+        Text(stringResource(R.string.messenger), color = Teal,
+            style = MaterialTheme.typography.labelMedium)
     }
 }
 

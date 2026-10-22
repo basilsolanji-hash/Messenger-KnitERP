@@ -1,6 +1,6 @@
-# Messenger KnitERP
+# Ось коммуникации
 
-Серверная и клиентская основа защищенного мессенджера под брендом **knitERP**.
+Серверная и клиентская основа защищенного мессенджера в экосистеме **Ось** (прежнее название — knitERP).
 
 **Статус: серверная основа и клиентский прототип для разработки. Android 0.2 содержит локальный тест и отдельный режим подключения к закрытому HTTPS-стенду. Переписка двух физических телефонов ещё не проверена. На Beget проект не развернут.**
 
@@ -77,3 +77,5 @@ dotnet test server/Messenger.Tests --filter Category=PostgreSQL
 4. Полная регистрация SMS, PIN и recovery code, refresh tokens, подписанные device challenges, безопасный staging.
 
 Подробные границы: [docs/STATUS.md](docs/STATUS.md), [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md), [docs/DECISIONS.md](docs/DECISIONS.md).
+
+Новое название продукта — **Ось коммуникации**. Контракт подключения к основной системе описан в [docs/OS_INTEGRATION_V1.md](docs/OS_INTEGRATION_V1.md); новые интеграционные endpoints пока являются проектом, а не работающим API. Ребрендинг не меняет идентификаторы Android, ключи и существующие сессии.

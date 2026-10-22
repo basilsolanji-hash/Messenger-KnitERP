@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">knitERP Messenger · тэст</string>
-    <string name="messenger">Месенджар</string>
+    <string name="brand_name">Ось</string>
+    <string name="app_name">Ось коммуникации · тэст</string>
+    <string name="messenger">Камунікацыі</string>
     <string name="chats">Чаты</string>
     <string name="settings">Налады</string>
     <string name="test_chat">Тэставы суразмоўца</string>
     <string name="local_demo">Лакальны тэст · на гэтым тэлефоне</string>
     <string name="demo_description">Лакальны тэст двух профіляў. Для сувязі двух тэлефонаў адкрыйце закрыты тэст сервера ў наладах.</string>
-    <string name="demo_welcome">Прывітанне! Гэта тэставы чат knitERP. Напішыце паведамленне — праверым шыфраванне і захаванне гісторыі на гэтым тэлефоне.</string>
+    <string name="demo_welcome">Прывітанне! Гэта тэставы чат Ось. Напішыце паведамленне — праверым шыфраванне і захаванне гісторыі на гэтым тэлефоне.</string>
     <string name="demo_reply">Атрымана і расшыфравана. Гісторыя захавана на прыладзе 🔒</string>
     <string name="message_hint">Паведамленне</string>
     <string name="send">Адправіць</string>
@@ -26,7 +27,7 @@
     <string name="send_error">Не ўдалося завяршыць адпраўку. Захаваная чарга будзе праверана пры наступным запуску.</string>
     <string name="loading">Адкрываем абароненае сховішча…</string>
     <string name="local_delivery">Дастаўлена ў лакальным тэсце</string>
-    <string name="logo_description">Лагатып knitERP</string>
+    <string name="logo_description">Лагатып Ось</string>
     <string name="net_title">Закрыты тэст сервера</string>
     <string name="net_notice">Стэнд для сінтэтычных даных. Аператар выдае асабістую сесію на 15 хвілін. SMS-рэгістрацыя яшчэ не падключана.</string>
     <string name="net_step_request">1. Запыт для аператара</string>

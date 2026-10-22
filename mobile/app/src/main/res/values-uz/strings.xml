@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">knitERP Messenger · sinov</string>
-    <string name="messenger">Messenjer</string>
+    <string name="brand_name">Ось</string>
+    <string name="app_name">Ось коммуникации · sinov</string>
+    <string name="messenger">Aloqa</string>
     <string name="chats">Chatlar</string>
     <string name="settings">Sozlamalar</string>
     <string name="test_chat">Sinov suhbatdoshi</string>
     <string name="local_demo">Mahalliy sinov · shu telefonda</string>
     <string name="demo_description">Ikki profilning mahalliy sinovi. Ikki telefonni ulash uchun sozlamalarda yopiq server sinovini oching.</string>
-    <string name="demo_welcome">Salom! Bu knitERP sinov chati. Xabar yozing — shifrlash va tarixning shu telefonda saqlanishini tekshiramiz.</string>
+    <string name="demo_welcome">Salom! Bu Ось sinov chati. Xabar yozing — shifrlash va tarixning shu telefonda saqlanishini tekshiramiz.</string>
     <string name="demo_reply">Qabul qilindi va shifri ochildi. Tarix qurilmada saqlandi 🔒</string>
     <string name="message_hint">Xabar</string>
     <string name="send">Yuborish</string>
@@ -26,7 +27,7 @@
     <string name="send_error">Yuborishni yakunlab bo‘lmadi. Saqlangan navbat keyingi ishga tushirishda tekshiriladi.</string>
     <string name="loading">Himoyalangan xotira ochilmoqda…</string>
     <string name="local_delivery">Mahalliy sinovda yetkazildi</string>
-    <string name="logo_description">knitERP logotipi</string>
+    <string name="logo_description">Ось logotipi</string>
     <string name="net_title">Serverning yopiq sinovi</string>
     <string name="net_notice">Sun’iy ma’lumotlar uchun sinov muhiti. Operator 15 daqiqalik shaxsiy seans beradi. SMS orqali ro‘yxatdan o‘tish hali ulanmagan.</string>
     <string name="net_step_request">1. Operator uchun so‘rov</string>

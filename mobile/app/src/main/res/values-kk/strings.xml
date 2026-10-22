@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">knitERP Messenger · сынақ</string>
-    <string name="messenger">Мессенджер</string>
+    <string name="brand_name">Ось</string>
+    <string name="app_name">Ось коммуникации · сынақ</string>
+    <string name="messenger">Байланыс</string>
     <string name="chats">Чаттар</string>
     <string name="settings">Баптаулар</string>
     <string name="test_chat">Сынақ сұхбаттасы</string>
     <string name="local_demo">Жергілікті сынақ · осы телефонда</string>
     <string name="demo_description">Екі профильдің жергілікті сынағы. Екі телефонды қосу үшін баптаулардағы сервердің жабық сынағын ашыңыз.</string>
-    <string name="demo_welcome">Сәлем! Бұл — knitERP сынақ чаты. Хабарлама жазыңыз — шифрлауды және осы телефонда тарихтың сақталуын тексереміз.</string>
+    <string name="demo_welcome">Сәлем! Бұл — Ось сынақ чаты. Хабарлама жазыңыз — шифрлауды және осы телефонда тарихтың сақталуын тексереміз.</string>
     <string name="demo_reply">Алынды және шифры ашылды. Тарих құрылғыда сақталды 🔒</string>
     <string name="message_hint">Хабарлама</string>
     <string name="send">Жіберу</string>
@@ -26,7 +27,7 @@
     <string name="send_error">Жіберуді аяқтау мүмкін болмады. Сақталған кезек келесі іске қосылғанда тексеріледі.</string>
     <string name="loading">Қорғалған қойма ашылуда…</string>
     <string name="local_delivery">Жергілікті сынақта жеткізілді</string>
-    <string name="logo_description">knitERP логотипі</string>
+    <string name="logo_description">Ось логотипі</string>
     <string name="net_title">Сервердің жабық сынағы</string>
     <string name="net_notice">Жасанды деректерге арналған орта. Оператор 15 минуттық жеке сеанс береді. SMS арқылы тіркелу әлі қосылмаған.</string>
     <string name="net_step_request">1. Операторға сұрау</string>
