@@ -27,6 +27,7 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
+      - run: python3 scripts/check-device-proof.py
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
