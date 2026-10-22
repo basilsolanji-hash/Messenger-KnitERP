@@ -12,7 +12,7 @@
 ./gradlew :core:test :app:assembleDebug :app:assembleDebugAndroidTest
 ```
 
-APK: `app/build/outputs/apk/debug/app-debug.apk`. Это сборка с тестовой подписью для проверки, не релиз для Google Play. Не добавляйте debug-keystore, секреты или `local.properties` в git.
+APK создаются отдельно для каждой ABI в `app/build/outputs/apk/debug/`: `app-arm64-v8a-debug.apk` для современных ARM64-телефонов, `app-armeabi-v7a-debug.apk` для ARM32, варианты x86/x86_64 — для соответствующих устройств и эмуляторов. Это сборки с тестовой подписью, не релиз для Google Play. Не добавляйте debug-keystore, секреты или `local.properties` в git.
 
 Проверка на подключённом устройстве/эмуляторе:
 

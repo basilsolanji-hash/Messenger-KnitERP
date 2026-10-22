@@ -1,0 +1,6 @@
+ru.kniterp.messenger.LanguageResourcesTest:.
+ru.kniterp.messenger.storage.EncryptedVaultTest:.
+
+Time: 8.823
+
+OK (2 tests)
