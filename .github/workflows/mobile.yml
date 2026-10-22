@@ -44,5 +44,6 @@ jobs:
           name: android-dev-and-test-results
           path: |
             mobile/app/build/outputs/apk/debug/*.apk
+            mobile/app/build/outputs/apk/androidTest/debug/*.apk
             mobile/core/build/test-results/
           retention-days: 14

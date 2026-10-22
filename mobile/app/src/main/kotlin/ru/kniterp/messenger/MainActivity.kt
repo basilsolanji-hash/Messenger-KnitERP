@@ -51,6 +51,7 @@ private val Teal = Color(0xFF087F76)
 private val Ink = Color(0xFF172E39)
 private val Mist = Color(0xFFF2F6F5)
 private val scheme = lightColorScheme(primary = Teal, onPrimary = Color.White, secondary = Teal,
+    secondaryContainer = Color(0xFFE4F4ED), onSecondaryContainer = Teal,
     background = Color.White, surface = Color.White, onSurface = Ink, surfaceVariant = Mist)
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -122,7 +123,7 @@ private fun KnitMessenger(model: DemoModel = viewModel()) {
     val context = LocalContext.current
     val bitmap = remember { context.assets.open("knitERP_logo_selected.png").use { BitmapFactory.decodeStream(it).asImageBitmap() } }
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Image(bitmap, stringResource(R.string.logo_description), Modifier.size(42.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
+        Image(bitmap, stringResource(R.string.logo_description), Modifier.size(42.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xFF171717)), contentScale = ContentScale.Fit)
         Column {
             Text("knitERP", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
             Text(stringResource(R.string.messenger), color = Teal, style = MaterialTheme.typography.labelMedium)
