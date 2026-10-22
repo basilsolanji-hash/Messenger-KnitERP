@@ -119,3 +119,18 @@ ARM64 APK `knitERP-Messenger-0.2.0-dev-arm64.apk`: 45 547 364 байта. SHA-25
 - SMS.ru: ни одного реального запроса; официальная документация из среды недоступна.
 - Закрытие SignalR-соединений между экземплярами (фоновая проверка `QueueWorker`) отдельным тестом не покрыто.
 - Нагрузка, несколько отдельных ОС-процессов API (оба экземпляра в одном тестовом процессе, но с отдельными пулами соединений и DI), GitHub Actions — не запускались.
+
+## Android-вход, сетевой слой — 22 октября 2026 года (ветка `claude/android-auth-v1`)
+
+Сделан только слой `mobile/network`: `DeviceProof`, `AuthApi`, `Login`, `UserSession`, `VaultAuthStore`, `PhoneInput`; `PinnedApi` получил источник access-токена с одним повтором после 401. **Экраны, ключ AndroidKeyStore и подключение в `app` не сделаны**: в среде закрыты `dl.google.com` (AGP, AndroidX, SDK) и `build-artifacts.signal.org` (libsignal), Android SDK отсутствует. Полная Gradle-сборка `mobile` не выполнялась.
+
+| Проверка | Фактический результат |
+| --- | --- |
+| Изолированная JVM-сборка: Kotlin 2.2.20, JDK 21.0.12, OkHttp 5.3.0 из Maven Central; исходники `network` (кроме `Enrollment`) и `core/Wire.kt`, `core/Records.kt`, начало `core/Delivery.kt` до класса `Delivery` | Компиляция без ошибок и предупреждений |
+| Существующие `PinnedApiTest` после рефакторинга | 7 из 7 |
+| Новые `AuthClientTest` (MockWebServer по TLS с pinning) | 13 из 13, три повтора подряд |
+| `ServerSmokeTestAuth` против настоящего ASP.NET API (Development, fake SMS, PostgreSQL 18.6) | 1 из 1: сервер принял подпись Kotlin-клиента (`CODE_INVALID`), отклонил чужой ключ и чужое устройство (`DEVICE_PROOF_INVALID`), чужой номер (`CHALLENGE_MISMATCH`), закрыл challenge после 5 попыток, повтор `requestId` вернул тот же challenge |
+
+Покрыто: побайтное совпадение payload с `docs/fixtures/device-proof-v1.json`, DER-подпись `SHA256withECDSA`; повтор запроса кода после обрыва с тем же `requestId` и без `Authorization`; код → PIN → активация с проверяемыми подписями; 10 параллельных вызовов → один refresh; 401 → refresh → повтор; потерянный ответ refresh → тот же подписанный запрос, в том числе после «перезапуска» объекта сессии; истёкший challenge → новый; `REFRESH_REUSED` и `SESSION_REVOKED` завершают сессию без дальнейших запросов; logout при недоступном сервере; pinning и запрет redirect для auth-endpoint; `retryAfterSeconds`/`attemptsRemaining`; отсутствие токенов, номера и PIN в `toString()`.
+
+Не проверено: компиляция в реальной Gradle-сборке `mobile` (вместе с libsignal и `ServerSmokeTest`), полный вход с получением кода (нужен согласованный test-only способ получить код fake-провайдера), refresh против настоящего API, всё, что относится к Android-устройству. Снимок прогона: `test-results/2026-10-22/android-auth-network-jvm.png`.
