@@ -575,6 +575,26 @@ public sealed class AuthFlowTests : IAsyncLifetime
     }
 
     [Fact, Trait("Category", "PostgreSQL")]
+    public async Task EmptyTrustedProxyListDoesNotAllowSpoofingSmsIpLimit()
+    {
+        // appsettings.json defaults to no trusted proxies. A different X-Forwarded-For
+        // on each request must not spread one TCP peer across multiple limit buckets.
+        var direct = Peer();
+        var statuses = new List<HttpStatusCode>();
+        for (var i = 0; i < 6; i++)
+        {
+            using var device = new TestDevice();
+            var response = await Post(i % 2 == 0 ? a : b, "/api/v1/auth/sms/challenges",
+                Challenge(device, RuPhone()), direct, forwarded: Peer());
+            statuses.Add(response.StatusCode);
+            if (i == 5) await Fails(response, "RATE_LIMITED");
+        }
+        Assert.Equal(5, statuses.Count(x => x == HttpStatusCode.OK));
+        Assert.Equal(HttpStatusCode.TooManyRequests, statuses[^1]);
+        Assert.Equal(5, AllSms.Count());
+    }
+
+    [Fact, Trait("Category", "PostgreSQL")]
     public async Task DailyBudgetStopsPaidSends()
     {
         await using var tight = new AuthHost(database, clock, new Dictionary<string, string> { ["Auth:Sms:Limits:DailyBudgetKopecks"] = "1200" });

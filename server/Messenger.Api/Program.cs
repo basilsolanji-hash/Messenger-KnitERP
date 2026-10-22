@@ -56,11 +56,14 @@ if (builder.Configuration.GetValue<long?>("Auth:Sms:Limits:DailyBudgetKopecks") 
 builder.Services.Configure<ForwardedHeadersOptions>(o =>
 {
     // X-Forwarded-For is honoured only from explicitly listed reverse proxies, one hop deep.
-    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor;
+    var proxies = builder.Configuration.GetSection("Auth:TrustedProxies").Get<string[]>() ?? [];
+    // Empty KnownProxies AND KnownIPNetworks means trust every peer in ASP.NET Core.
+    // With no configured proxy, ignore forwarded headers altogether.
+    o.ForwardedHeaders = proxies.Length == 0 ? ForwardedHeaders.None : ForwardedHeaders.XForwardedFor;
     o.ForwardLimit = 1;
     o.KnownProxies.Clear();
     o.KnownIPNetworks.Clear();
-    foreach (var proxy in builder.Configuration.GetSection("Auth:TrustedProxies").Get<string[]>() ?? [])
+    foreach (var proxy in proxies)
         o.KnownProxies.Add(System.Net.IPAddress.Parse(proxy));
 });
 builder.Services.AddHostedService<QueueWorker>();
