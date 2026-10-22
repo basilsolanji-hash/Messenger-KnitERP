@@ -1,0 +1,37 @@
+name: Server foundation
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: messenger
+          POSTGRES_DB: messenger_test
+          # Isolated disposable CI service, never deployed or reused.
+          POSTGRES_PASSWORD: ci-ephemeral-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U messenger -d messenger_test"
+          --health-interval 3s --health-timeout 3s --health-retries 20
+    env:
+      TEST_DATABASE: Host=127.0.0.1;Port=5432;Database=messenger_test;Username=messenger;Password=ci-ephemeral-only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - run: dotnet restore server/Messenger.Tests --locked-mode
+      - run: dotnet test server/Messenger.Tests -c Release --no-restore --logger trx --results-directory TestResults
+      - run: dotnet list server/Messenger.Api package --vulnerable --include-transitive
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: server-test-results
+          path: TestResults
