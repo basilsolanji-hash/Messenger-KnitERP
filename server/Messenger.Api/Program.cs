@@ -172,6 +172,23 @@ app.MapPost("/api/v1/dev/accounts/{accountId:guid}/session", async (Guid account
     return Results.Ok(access.Issue(account!, device!));
 });
 
+// Synthetic test stand only: reads a code the in-memory fake provider "sent". Not mapped with a real provider,
+// requires the operator key, and takes the challenge id in the body so no number or code appears in a URL.
+if (app.Services.GetService<FakeSms>() is { } fakeSms)
+    app.MapPost("/api/v1/dev/sms/code", async (HttpContext context, DevSmsCodeRequest request, MessengerDb db,
+        AuthSecrets secrets, IConfiguration config, CancellationToken ct) =>
+    {
+        Access.ProvisioningKey(context, config);
+        var challenge = await db.AuthChallenges.AsNoTracking().SingleOrDefaultAsync(x => x.Id == request.ChallengeId &&
+            x.Operation == ChallengeOperation.Activate, ct);
+        var sent = challenge?.PhoneIndex is { } index ? fakeSms.Sent.LastOrDefault(x =>
+            System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(secrets.PhoneIndex(x.Phone), index)) : default;
+        var code = sent.Text is null ? null : System.Text.RegularExpressions.Regex.Match(sent.Text, @"\b\d{6}\b").Value;
+        Transport.Require(code is { Length: 6 }, "NOT_FOUND", 404);
+        context.Response.Headers.CacheControl = "no-store";
+        return Results.Ok(new { code });
+    });
+
 // Public auth API. Separate from /api/v1/dev; its presence does not lift the Development-only guard above.
 var auth = app.MapGroup("/api/v1/auth").AddEndpointFilter(async (context, next) =>
 {

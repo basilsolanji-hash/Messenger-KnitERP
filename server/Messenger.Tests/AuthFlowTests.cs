@@ -634,4 +634,25 @@ public sealed class AuthFlowTests : IAsyncLifetime
             foreach (var body in bodies) Assert.DoesNotContain(secret, body);
         }
     }
+
+    [Fact, Trait("Category", "PostgreSQL")]
+    public async Task DevCodeEndpointNeedsOperatorKeyAndExistsOnlyWithFakeProvider()
+    {
+        using var device = new TestDevice();
+        var phone = RuPhone();
+        var c = await Start(device, phone);
+        await Fails(await Post(a, "/api/v1/dev/sms/code", new DevSmsCodeRequest(c.ChallengeId)), "UNAUTHORIZED");
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/dev/sms/code") { Content = JsonContent.Create(new DevSmsCodeRequest(c.ChallengeId), options: Json) };
+        request.Headers.Add("X-Dev-Provisioning-Token", AuthHost.Secrets["Dev:ProvisioningKey"]);
+        var response = await a.SendAsync(request);
+        Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+        Assert.Equal(CodeFor(phone), (await Ok<System.Text.Json.JsonElement>(response)).GetProperty("code").GetString());
+
+        await using var real = new AuthHost(database, clock, new Dictionary<string, string>
+            { ["Auth:Sms:Provider"] = "SmsRu", ["Auth:Sms:SmsRu:ApiKey"] = "synthetic-not-a-key" });
+        using var probe = new HttpRequestMessage(HttpMethod.Post, "/api/v1/dev/sms/code") { Content = JsonContent.Create(new DevSmsCodeRequest(c.ChallengeId), options: Json) };
+        probe.Headers.Add("X-Dev-Provisioning-Token", AuthHost.Secrets["Dev:ProvisioningKey"]);
+        Assert.Equal(HttpStatusCode.NotFound, (await real.CreateClient().SendAsync(probe)).StatusCode);
+        Assert.Equal(0, real.Network.Calls);
+    }
 }
