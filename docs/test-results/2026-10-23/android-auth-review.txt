@@ -1,0 +1,13 @@
+Date: 2026-10-23 (Europe/Moscow)
+Command: :core:test :network:test :app:assembleDebug :app:assembleDebugAndroidTest
+Actual project: full mobile core/network/app, real libsignal 0.105.4. No core stubs.
+ru.kniterp.messenger.core.SignalClientTest: tests=12 failures=0 errors=0 skipped=0
+ru.kniterp.messenger.core.DeliveryTest: tests=5 failures=0 errors=0 skipped=0
+ru.kniterp.messenger.network.PinnedApiTest: tests=7 failures=0 errors=0 skipped=0
+ru.kniterp.messenger.network.EnrollmentTest: tests=2 failures=0 errors=0 skipped=0
+ru.kniterp.messenger.network.AuthClientTest: tests=23 failures=0 errors=0 skipped=0
+Final incremental build: BUILD SUCCESSFUL in 44s; 78 actionable tasks: 4 executed, 74 up-to-date; exit 0.
+App and instrumentation APKs built. Source for ServerSmokeTestAuth compiled; live HTTP tests NOT executed.
+Device proof script: 33 checks passed.
+Native Android instrumentation, physical phones, server .NET/PostgreSQL, Beget/TLS and paid SMS NOT run in this iteration.
+SMS/PIN UI and application-scope profile/session integration NOT implemented; external integration API remains a draft.

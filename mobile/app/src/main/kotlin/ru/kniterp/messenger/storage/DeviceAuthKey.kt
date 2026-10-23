@@ -8,11 +8,12 @@ import java.security.PrivateKey
 import java.security.Signature
 import java.security.spec.ECGenParameterSpec
 import ru.kniterp.messenger.core.Wire
+import ru.kniterp.messenger.network.DeviceSigner
 
 /** A separate non-exportable P-256 key for one activation, independent of Signal.
  * Missing or invalidated keys fail closed. Opening an existing activation never replaces its key.
  */
-internal class DeviceAuthKey private constructor(private val alias: String) {
+internal class DeviceAuthKey private constructor(private val alias: String) : DeviceSigner {
     companion object {
         private fun alias(deviceId: String) = "kniterp.messenger.auth.v1.${Wire.id(deviceId)}"
         private fun store() = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
@@ -41,7 +42,9 @@ internal class DeviceAuthKey private constructor(private val alias: String) {
         "Device auth public key is unavailable"
     }.publicKey.encoded.copyOf()
 
-    fun sign(payload: ByteArray): ByteArray {
+    override val authKey: ByteArray get() = publicKeySpki()
+
+    override fun sign(payload: ByteArray): ByteArray {
         require(payload.isNotEmpty() && payload.size <= 2048)
         val key = store().getKey(alias, null) as? PrivateKey
         checkNotNull(key) { "Device auth private key is unavailable" }

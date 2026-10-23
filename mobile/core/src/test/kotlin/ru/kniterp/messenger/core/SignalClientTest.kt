@@ -77,10 +77,9 @@ class SignalClientTest {
         val a = participant(); val b = participant()
         a.client.establish(b.device.accountId, b.bundle())
         val envelope = a.client.prepare(b.device.accountId, "Неповрежденное").incoming(a.device)
-        val bytes = Wire.bytes(envelope.ciphertext)
-        bytes[bytes.lastIndex] = (bytes.last().toInt() xor 1).toByte()
+        val corrupted = envelope.withTamperedBody()
         val before = b.vault.snapshot()
-        assertFails { b.client.receive(envelope.copy(ciphertext = Wire.base64(bytes))) }
+        assertFails { b.client.receive(corrupted) }
         assertSnapshotEquals(before, b.vault.snapshot())
         assertEquals("Неповрежденное", b.client.receive(envelope).text)
     }

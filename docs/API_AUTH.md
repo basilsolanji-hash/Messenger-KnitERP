@@ -142,6 +142,10 @@
 
 PIN — ровно 6 ASCII-цифр, без одинаковых цифр подряд и без возрастающих/убывающих последовательностей.
 
+## Только для синтетического стенда
+
+`POST /api/v1/dev/sms/code` `{ "challengeId": "…" }` с заголовком `X-Dev-Provisioning-Token` → `{ "code": "123456" }`. Endpoint возвращает код, «отправленный» fake-провайдером в память этого экземпляра. Он регистрируется **только** при `Auth:Sms:Provider=Fake`, а fake-провайдер разрешён только в Development. С SMS.ru этого маршрута нет (404). Нужен для автоматических сквозных тестов клиента. Номер и код в URL не попадают.
+
 ## Access JWT
 
 HS256, `iss=kniterp-messenger-dev`, `aud=kniterp-messenger-android`, `exp` ровно 15 минут после выдачи (секундная точность, `expiresAt` в ответе — это и есть `exp`). Claims: `sub` (accountId), `device`, `generation`, `sid` (семья refresh), `jti`. На каждом запросе и при подключении SignalR сервер проверяет активное устройство, совпадение generation и живую семью `sid`.

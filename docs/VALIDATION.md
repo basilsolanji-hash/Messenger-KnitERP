@@ -119,3 +119,28 @@ ARM64 APK `knitERP-Messenger-0.2.0-dev-arm64.apk`: 45 547 364 байта. SHA-25
 - SMS.ru: ни одного реального запроса; официальная документация из среды недоступна.
 - Закрытие SignalR-соединений между экземплярами (фоновая проверка `QueueWorker`) отдельным тестом не покрыто.
 - Нагрузка, несколько отдельных ОС-процессов API (оба экземпляра в одном тестовом процессе, но с отдельными пулами соединений и DI), GitHub Actions — не запускались.
+
+## Android-вход, сетевой слой — 22 октября 2026 года (ветка `claude/android-auth-v1`)
+
+Сделан только слой `mobile/network`: `DeviceProof`, `AuthApi`, `Login`, `UserSession`, `VaultAuthStore`, `PhoneInput`; `PinnedApi` получил источник access-токена с одним повтором после 401. **Экраны, ключ AndroidKeyStore и подключение в `app` не сделаны**: в среде закрыты `dl.google.com` (AGP, AndroidX, SDK) и `build-artifacts.signal.org` (libsignal), Android SDK отсутствует. Полная Gradle-сборка `mobile` не выполнялась.
+
+| Проверка | Фактический результат |
+| --- | --- |
+| Изолированная JVM-сборка: Kotlin 2.2.20, JDK 21.0.12, OkHttp 5.3.0 из Maven Central; исходники `network` (кроме `Enrollment`) и `core/Wire.kt`, `core/Records.kt`, начало `core/Delivery.kt` до класса `Delivery` | Компиляция без ошибок и предупреждений |
+| Существующие `PinnedApiTest` после рефакторинга | 7 из 7 |
+| Новые `AuthClientTest` (MockWebServer по TLS с pinning) | 13 из 13, три повтора подряд |
+| `ServerSmokeTestAuth` против настоящего ASP.NET API (Development, fake SMS, PostgreSQL 18.6) | 1 из 1: сервер принял подпись Kotlin-клиента (`CODE_INVALID`), отклонил чужой ключ и чужое устройство (`DEVICE_PROOF_INVALID`), чужой номер (`CHALLENGE_MISMATCH`), закрыл challenge после 5 попыток, повтор `requestId` вернул тот же challenge |
+
+Покрыто: побайтное совпадение payload с `docs/fixtures/device-proof-v1.json`, DER-подпись `SHA256withECDSA`; повтор запроса кода после обрыва с тем же `requestId` и без `Authorization`; код → PIN → активация с проверяемыми подписями; 10 параллельных вызовов → один refresh; 401 → refresh → повтор; потерянный ответ refresh → тот же подписанный запрос, в том числе после «перезапуска» объекта сессии; истёкший challenge → новый; `REFRESH_REUSED` и `SESSION_REVOKED` завершают сессию без дальнейших запросов; logout при недоступном сервере; pinning и запрет redirect для auth-endpoint; `retryAfterSeconds`/`attemptsRemaining`; отсутствие токенов, номера и PIN в `toString()`.
+
+Добавлен `POST /api/v1/dev/sms/code`: только при fake-провайдере, только с операторским ключом. Серверный набор после этого — **50 из 50** на PostgreSQL 18.6, включая проверку, что без ключа ответ 401, а при `SmsRu` маршрута нет. Второй сквозной тест `ServerSmokeTestAuth` прошёл против настоящего API: регистрация по коду; `/me`; refresh новым процессом с подписанным challenge; установка PIN; через 61 с перенос на второе устройство (`PIN_REQUIRED`, неверный PIN не меняет generation, верный — generation 2); старое устройство на ближайшем запросе получает `SessionEnded(SESSION_REVOKED)`; logout нового. Итог JVM-набора — **22 из 22**. В логе API этого прогона (181 строка) нет номера, PIN и refresh token.
+
+Не проверено: компиляция в реальной Gradle-сборке `mobile` (вместе с libsignal и `ServerSmokeTest`), всё, что относится к Android-устройству. Снимок прогона: `test-results/2026-10-22/android-auth-network-jvm.png`.
+
+## Клиентская авторизация: проверка 23 октября 2026 года
+
+Сетевой код PR #4 проверен вместе с клиентом PR #3 в полном проекте `mobile`, с настоящим libsignal 0.105.4. Команда `:core:test :network:test :app:assembleDebug :app:assembleDebugAndroidTest` завершилась успешно. **49 JVM-тестов**: 17 core, 32 network (AuthClientTest 23, PinnedApiTest 7, EnrollmentTest 2), без ошибок и пропусков. APK приложения и инструментальных тестов собраны; live HTTP-тесты скомпилированы, но не запускались. Дополнительно `check-device-proof.py` выполнил 33 проверки.
+
+Добавлены durable budget идентичного refresh-повтора, закрытый отказ при истечении/неоднозначности recovery journal и проверка ответа до его удаления. Android Keystore signer реализует DeviceSigner. Исправлен нестабильный тест: повреждается ciphertext body, а не случайный последний байт внешнего pre-key-конверта. Production-реализация шифрования не менялась.
+
+Не выполнены на этой версии Android instrumentation/запуск, живой HTTP-вход, серверные тесты PostgreSQL/.NET, Beget/TLS и два физических телефона. SMS/PIN UI и application-scope профиль/сессия ещё не подключены. Предыдущие результаты Claude по серверу не считаются независимым повтором этой проверки. Подробности: `reviews/2026-10-23-android-auth.md`, фактический результат: `test-results/2026-10-23/android-auth-review.txt`. Внешний API остаётся проектом.

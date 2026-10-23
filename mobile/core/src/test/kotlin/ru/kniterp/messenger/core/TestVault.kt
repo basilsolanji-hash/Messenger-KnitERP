@@ -39,3 +39,17 @@ internal fun Participant.bundle(): ClaimedBundle {
 }
 internal fun Outgoing.incoming(from: Device, sequence: Long = 1) = Incoming(sequence, clientMessageId,
     from.accountId, from.deviceId, from.generation, messageType, ciphertext, "2026-10-22T00:00:00Z", "2026-11-21T00:00:00Z")
+
+/** Change actual encrypted payload bytes, not optional outer pre-key metadata. */
+internal fun Incoming.withTamperedBody(): Incoming {
+    val bytes = Wire.bytes(ciphertext)
+    val body = if (messageType == org.signal.libsignal.protocol.message.CiphertextMessage.PREKEY_TYPE)
+        org.signal.libsignal.protocol.message.PreKeySignalMessage(bytes).whisperMessage.body
+    else org.signal.libsignal.protocol.message.SignalMessage(bytes).body
+    require(body.isNotEmpty())
+    val start = bytes.indices.single { offset -> offset + body.size <= bytes.size &&
+        body.indices.all { bytes[offset + it] == body[it] } }
+    val position = start + body.size / 2
+    bytes[position] = (bytes[position].toInt() xor 1).toByte()
+    return copy(ciphertext = Wire.base64(bytes))
+}

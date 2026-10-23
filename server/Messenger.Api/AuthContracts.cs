@@ -14,3 +14,4 @@ public sealed record RefreshChallengeRequest(Guid DeviceId);
 public sealed record RefreshRequest(string RefreshToken, Guid ChallengeId, byte[] Signature);
 public sealed record SetPinRequest(string Pin, string? CurrentPin);
 public sealed record DisablePinRequest(string CurrentPin);
+public sealed record DevSmsCodeRequest(Guid ChallengeId);

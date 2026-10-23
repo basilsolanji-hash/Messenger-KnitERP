@@ -99,8 +99,7 @@ class DeliveryTest {
         sender.queue(b.device.accountId, "valid"); sender.synchronize()
         val index = server.packets.indexOfFirst { it.clientMessageId == corrupt.clientMessageId }
         val first = server.packets[index]
-        val bytes = Wire.bytes(first.ciphertext); bytes[bytes.lastIndex] = (bytes.last().toInt() xor 1).toByte()
-        server.packets[index] = first.copy(ciphertext = Wire.base64(bytes))
+        server.packets[index] = first.withTamperedBody()
         val report = Delivery(b.vault, server.api(b)).synchronize()
         assertEquals(listOf(first.sequence), report.rejectedSequences)
         assertEquals("valid", b.client.history().single().text)
