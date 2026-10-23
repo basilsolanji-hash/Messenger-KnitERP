@@ -1,0 +1,91 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="c37bd4ad-9cc9-4604-b5e2-6f06a286ca74" name="@d2a18c73c71f 2026-10-23 15:19:50" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-23T15:19:50.5949769+03:00" queuing="2026-10-23T15:19:50.5949770+03:00" start="2026-10-23T15:19:49.1910801+03:00" finish="2026-10-23T15:19:50.6037876+03:00" />
+  <TestSettings name="default" id="9af9c8b5-10c6-445b-9e16-639d93c46ee0">
+    <Deployment runDeploymentRoot="_d2a18c73c71f_2026-10-23_15_19_50" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="4489998d-34fc-4c23-ac94-ea194ff84a0e" testId="10d28829-0ae8-1901-ded0-471de6340036" testName="Messenger.Tests.TrustedProxyTests.OnlyExplicitTrustedPeerCanForwardOneAddress(proxy: &quot;192.0.2.10&quot;, peer: &quot;192.0.2.10&quot;, forwarded: &quot;&quot;, expected: &quot;192.0.2.10&quot;)" computerName="d2a18c73c71f" duration="00:00:00.0130619" startTime="2026-10-23T15:19:50.3748922+03:00" endTime="2026-10-23T15:19:50.3749643+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4489998d-34fc-4c23-ac94-ea194ff84a0e" />
+    <UnitTestResult executionId="79d54f09-34da-4059-809e-cb2083c1640f" testId="78630da2-9e5d-6f42-fcd4-833e118f5b70" testName="Messenger.Tests.TrustedProxyTests.OnlyExplicitTrustedPeerCanForwardOneAddress(proxy: &quot;&quot;, peer: &quot;198.18.0.5&quot;, forwarded: &quot;203.0.113.5&quot;, expected: &quot;198.18.0.5&quot;)" computerName="d2a18c73c71f" duration="00:00:00.0113143" startTime="2026-10-23T15:19:50.3345537+03:00" endTime="2026-10-23T15:19:50.3616328+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="79d54f09-34da-4059-809e-cb2083c1640f">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.Equal() Failure: Strings differ
+           ↓ (pos 0)
+Expected: "198.18.0.5"
+Actual:   "203.0.113.5"
+           ↑ (pos 0)</Message>
+          <StackTrace>   at Messenger.Tests.TrustedProxyTests.OnlyExplicitTrustedPeerCanForwardOneAddress(String proxy, String peer, String forwarded, String expected) in /workspace/scratch/6e1c5e677971/Messenger-KnitERP/server/Messenger.Tests/TrustedProxyTests.cs:line 48
+   at Messenger.Tests.TrustedProxyTests.OnlyExplicitTrustedPeerCanForwardOneAddress(String proxy, String peer, String forwarded, String expected) in /workspace/scratch/6e1c5e677971/Messenger-KnitERP/server/Messenger.Tests/TrustedProxyTests.cs:line 49
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="ca2cd4a2-27bb-4e90-9d55-6825745f099d" testId="1c3fa7c5-bd1b-2b71-7d8e-27ba6c9ab5dc" testName="Messenger.Tests.TrustedProxyTests.OnlyExplicitTrustedPeerCanForwardOneAddress(proxy: &quot;192.0.2.10&quot;, peer: &quot;198.18.0.5&quot;, forwarded: &quot;203.0.113.5&quot;, expected: &quot;198.18.0.5&quot;)" computerName="d2a18c73c71f" duration="00:00:00.2423166" startTime="2026-10-23T15:19:50.0188122+03:00" endTime="2026-10-23T15:19:50.2804635+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ca2cd4a2-27bb-4e90-9d55-6825745f099d" />
+    <UnitTestResult executionId="fd29770d-ac73-4ad1-8fea-13ab38f02b56" testId="b326160c-272f-6d1b-823d-ec2dba523440" testName="Messenger.Tests.TrustedProxyTests.OnlyExplicitTrustedPeerCanForwardOneAddress(proxy: &quot;192.0.2.10&quot;, peer: &quot;192.0.2.10&quot;, forwarded: &quot;198.51.100.66, 203.0.113.5&quot;, expected: &quot;203.0.113.5&quot;)" computerName="d2a18c73c71f" duration="00:00:00.0060967" startTime="2026-10-23T15:19:50.3276129+03:00" endTime="2026-10-23T15:19:50.3343157+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="fd29770d-ac73-4ad1-8fea-13ab38f02b56" />
+    <UnitTestResult executionId="f25ac4aa-2e82-4cbd-8a5b-e5847343d2a1" testId="bdb20f5b-394c-ecc2-c44f-f863bb86a27e" testName="Messenger.Tests.TrustedProxyTests.OnlyExplicitTrustedPeerCanForwardOneAddress(proxy: &quot;192.0.2.10&quot;, peer: &quot;::ffff:192.0.2.10&quot;, forwarded: &quot;203.0.113.5&quot;, expected: &quot;203.0.113.5&quot;)" computerName="d2a18c73c71f" duration="00:00:00.0135653" startTime="2026-10-23T15:19:50.3759316+03:00" endTime="2026-10-23T15:19:50.3880920+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f25ac4aa-2e82-4cbd-8a5b-e5847343d2a1" />
+    <UnitTestResult executionId="8547a98a-ffb7-4ced-97db-3b6ca4f7cbd1" testId="9e05cab8-f2d0-9da7-5157-03bd88e936a9" testName="Messenger.Tests.TrustedProxyTests.OnlyExplicitTrustedPeerCanForwardOneAddress(proxy: &quot;192.0.2.10&quot;, peer: &quot;192.0.2.10&quot;, forwarded: &quot;203.0.113.5&quot;, expected: &quot;203.0.113.5&quot;)" computerName="d2a18c73c71f" duration="00:00:00.0434666" startTime="2026-10-23T15:19:50.3030858+03:00" endTime="2026-10-23T15:19:50.3268066+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8547a98a-ffb7-4ced-97db-3b6ca4f7cbd1" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="Messenger.Tests.TrustedProxyTests.OnlyExplicitTrustedPeerCanForwardOneAddress(proxy: &quot;192.0.2.10&quot;, peer: &quot;192.0.2.10&quot;, forwarded: &quot;198.51.100.66, 203.0.113.5&quot;, expected: &quot;203.0.113.5&quot;)" storage="/workspace/scratch/6e1c5e677971/messenger-kniterp/server/messenger.tests/bin/release/net10.0/messenger.tests.dll" id="b326160c-272f-6d1b-823d-ec2dba523440">
+      <Execution id="fd29770d-ac73-4ad1-8fea-13ab38f02b56" />
+      <TestMethod codeBase="/workspace/scratch/6e1c5e677971/Messenger-KnitERP/server/Messenger.Tests/bin/Release/net10.0/Messenger.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Messenger.Tests.TrustedProxyTests" name="OnlyExplicitTrustedPeerCanForwardOneAddress" />
+    </UnitTest>
+    <UnitTest name="Messenger.Tests.TrustedProxyTests.OnlyExplicitTrustedPeerCanForwardOneAddress(proxy: &quot;192.0.2.10&quot;, peer: &quot;192.0.2.10&quot;, forwarded: &quot;&quot;, expected: &quot;192.0.2.10&quot;)" storage="/workspace/scratch/6e1c5e677971/messenger-kniterp/server/messenger.tests/bin/release/net10.0/messenger.tests.dll" id="10d28829-0ae8-1901-ded0-471de6340036">
+      <Execution id="4489998d-34fc-4c23-ac94-ea194ff84a0e" />
+      <TestMethod codeBase="/workspace/scratch/6e1c5e677971/Messenger-KnitERP/server/Messenger.Tests/bin/Release/net10.0/Messenger.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Messenger.Tests.TrustedProxyTests" name="OnlyExplicitTrustedPeerCanForwardOneAddress" />
+    </UnitTest>
+    <UnitTest name="Messenger.Tests.TrustedProxyTests.OnlyExplicitTrustedPeerCanForwardOneAddress(proxy: &quot;192.0.2.10&quot;, peer: &quot;192.0.2.10&quot;, forwarded: &quot;203.0.113.5&quot;, expected: &quot;203.0.113.5&quot;)" storage="/workspace/scratch/6e1c5e677971/messenger-kniterp/server/messenger.tests/bin/release/net10.0/messenger.tests.dll" id="9e05cab8-f2d0-9da7-5157-03bd88e936a9">
+      <Execution id="8547a98a-ffb7-4ced-97db-3b6ca4f7cbd1" />
+      <TestMethod codeBase="/workspace/scratch/6e1c5e677971/Messenger-KnitERP/server/Messenger.Tests/bin/Release/net10.0/Messenger.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Messenger.Tests.TrustedProxyTests" name="OnlyExplicitTrustedPeerCanForwardOneAddress" />
+    </UnitTest>
+    <UnitTest name="Messenger.Tests.TrustedProxyTests.OnlyExplicitTrustedPeerCanForwardOneAddress(proxy: &quot;192.0.2.10&quot;, peer: &quot;198.18.0.5&quot;, forwarded: &quot;203.0.113.5&quot;, expected: &quot;198.18.0.5&quot;)" storage="/workspace/scratch/6e1c5e677971/messenger-kniterp/server/messenger.tests/bin/release/net10.0/messenger.tests.dll" id="1c3fa7c5-bd1b-2b71-7d8e-27ba6c9ab5dc">
+      <Execution id="ca2cd4a2-27bb-4e90-9d55-6825745f099d" />
+      <TestMethod codeBase="/workspace/scratch/6e1c5e677971/Messenger-KnitERP/server/Messenger.Tests/bin/Release/net10.0/Messenger.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Messenger.Tests.TrustedProxyTests" name="OnlyExplicitTrustedPeerCanForwardOneAddress" />
+    </UnitTest>
+    <UnitTest name="Messenger.Tests.TrustedProxyTests.OnlyExplicitTrustedPeerCanForwardOneAddress(proxy: &quot;192.0.2.10&quot;, peer: &quot;::ffff:192.0.2.10&quot;, forwarded: &quot;203.0.113.5&quot;, expected: &quot;203.0.113.5&quot;)" storage="/workspace/scratch/6e1c5e677971/messenger-kniterp/server/messenger.tests/bin/release/net10.0/messenger.tests.dll" id="bdb20f5b-394c-ecc2-c44f-f863bb86a27e">
+      <Execution id="f25ac4aa-2e82-4cbd-8a5b-e5847343d2a1" />
+      <TestMethod codeBase="/workspace/scratch/6e1c5e677971/Messenger-KnitERP/server/Messenger.Tests/bin/Release/net10.0/Messenger.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Messenger.Tests.TrustedProxyTests" name="OnlyExplicitTrustedPeerCanForwardOneAddress" />
+    </UnitTest>
+    <UnitTest name="Messenger.Tests.TrustedProxyTests.OnlyExplicitTrustedPeerCanForwardOneAddress(proxy: &quot;&quot;, peer: &quot;198.18.0.5&quot;, forwarded: &quot;203.0.113.5&quot;, expected: &quot;198.18.0.5&quot;)" storage="/workspace/scratch/6e1c5e677971/messenger-kniterp/server/messenger.tests/bin/release/net10.0/messenger.tests.dll" id="78630da2-9e5d-6f42-fcd4-833e118f5b70">
+      <Execution id="79d54f09-34da-4059-809e-cb2083c1640f" />
+      <TestMethod codeBase="/workspace/scratch/6e1c5e677971/Messenger-KnitERP/server/Messenger.Tests/bin/Release/net10.0/Messenger.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Messenger.Tests.TrustedProxyTests" name="OnlyExplicitTrustedPeerCanForwardOneAddress" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="10d28829-0ae8-1901-ded0-471de6340036" executionId="4489998d-34fc-4c23-ac94-ea194ff84a0e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="78630da2-9e5d-6f42-fcd4-833e118f5b70" executionId="79d54f09-34da-4059-809e-cb2083c1640f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1c3fa7c5-bd1b-2b71-7d8e-27ba6c9ab5dc" executionId="ca2cd4a2-27bb-4e90-9d55-6825745f099d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b326160c-272f-6d1b-823d-ec2dba523440" executionId="fd29770d-ac73-4ad1-8fea-13ab38f02b56" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="bdb20f5b-394c-ecc2-c44f-f863bb86a27e" executionId="f25ac4aa-2e82-4cbd-8a5b-e5847343d2a1" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="9e05cab8-f2d0-9da7-5157-03bd88e936a9" executionId="8547a98a-ffb7-4ced-97db-3b6ca4f7cbd1" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="6" executed="6" passed="5" failed="1" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v3.1.4+50e68bbb8b (64-bit .NET 10.0.13)
+[xUnit.net 00:00:00.11]   Discovering: Messenger.Tests
+[xUnit.net 00:00:00.19]   Discovered:  Messenger.Tests
+[xUnit.net 00:00:00.22]   Starting:    Messenger.Tests
+[xUnit.net 00:00:00.62]       Assert.Equal() Failure: Strings differ
+[xUnit.net 00:00:00.62]                  ↓ (pos 0)
+[xUnit.net 00:00:00.62]       Expected: "198.18.0.5"
+[xUnit.net 00:00:00.62]       Actual:   "203.0.113.5"
+[xUnit.net 00:00:00.62]                  ↑ (pos 0)
+[xUnit.net 00:00:00.62]       Stack Trace:
+[xUnit.net 00:00:00.62]         /workspace/scratch/6e1c5e677971/Messenger-KnitERP/server/Messenger.Tests/TrustedProxyTests.cs(48,0): at Messenger.Tests.TrustedProxyTests.OnlyExplicitTrustedPeerCanForwardOneAddress(String proxy, String peer, String forwarded, String expected)
+[xUnit.net 00:00:00.62]         /workspace/scratch/6e1c5e677971/Messenger-KnitERP/server/Messenger.Tests/TrustedProxyTests.cs(49,0): at Messenger.Tests.TrustedProxyTests.OnlyExplicitTrustedPeerCanForwardOneAddress(String proxy, String peer, String forwarded, String expected)
+[xUnit.net 00:00:00.62]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:00.64]   Finished:    Messenger.Tests
+</StdOut>
+    </Output>
+    <RunInfos>
+      <RunInfo computerName="d2a18c73c71f" outcome="Error" timestamp="2026-10-23T15:19:50.3673290+03:00">
+        <Text>[xUnit.net 00:00:00.61]     Messenger.Tests.TrustedProxyTests.OnlyExplicitTrustedPeerCanForwardOneAddress(proxy: "", peer: "198.18.0.5", forwarded: "203.0.113.5", expected: "198.18.0.5") [FAIL]</Text>
+      </RunInfo>
+    </RunInfos>
+  </ResultSummary>
+</TestRun>

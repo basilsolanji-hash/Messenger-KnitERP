@@ -53,16 +53,7 @@ foreach (var region in new PhonePolicy(builder.Configuration).Regions)
         throw new InvalidOperationException("Configure Auth:Sms:CostKopecks for every allowed region.");
 if (builder.Configuration.GetValue<long?>("Auth:Sms:Limits:DailyBudgetKopecks") is not > 0)
     throw new InvalidOperationException("Configure Auth:Sms:Limits:DailyBudgetKopecks.");
-builder.Services.Configure<ForwardedHeadersOptions>(o =>
-{
-    // X-Forwarded-For is honoured only from explicitly listed reverse proxies, one hop deep.
-    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor;
-    o.ForwardLimit = 1;
-    o.KnownProxies.Clear();
-    o.KnownIPNetworks.Clear();
-    foreach (var proxy in builder.Configuration.GetSection("Auth:TrustedProxies").Get<string[]>() ?? [])
-        o.KnownProxies.Add(System.Net.IPAddress.Parse(proxy));
-});
+builder.Services.AddMessengerForwardedHeaders(builder.Configuration);
 builder.Services.AddHostedService<QueueWorker>();
 builder.Services.AddSignalR(o => { o.MaximumReceiveMessageSize = 4096; o.EnableDetailedErrors = false; });
 builder.Services.AddOpenApi();
