@@ -1,0 +1,26 @@
+test_certificate_without_dns_san_is_rejected (test_closed_https.GeneratorTests.test_certificate_without_dns_san_is_rejected) ... ok
+test_config_injection_paths_and_ports_are_rejected (test_closed_https.GeneratorTests.test_config_injection_paths_and_ports_are_rejected) ... ok
+test_empty_operator_allowlist_is_explicit_deny_and_config_is_isolated (test_closed_https.GeneratorTests.test_empty_operator_allowlist_is_explicit_deny_and_config_is_isolated) ... ok
+test_existing_bundle_is_preserved (test_closed_https.GeneratorTests.test_existing_bundle_is_preserved) ... ok
+test_mismatched_private_key_is_rejected (test_closed_https.GeneratorTests.test_mismatched_private_key_is_rejected) ... ok
+test_outputs_only_public_endpoint_data_and_exact_spki_pins (test_closed_https.GeneratorTests.test_outputs_only_public_endpoint_data_and_exact_spki_pins) ... ok
+test_rejects_invalid_hosts_without_creating_bundle (test_closed_https.GeneratorTests.test_rejects_invalid_hosts_without_creating_bundle) ... ok
+test_rejects_missing_or_dangerous_allowlists (test_closed_https.GeneratorTests.test_rejects_missing_or_dangerous_allowlists) ... ok
+test_same_key_in_different_certificates_is_not_a_backup (test_closed_https.GeneratorTests.test_same_key_in_different_certificates_is_not_a_backup) ... ok
+test_world_readable_key_is_rejected (test_closed_https.GeneratorTests.test_world_readable_key_is_rejected) ... ok
+test_wrong_hostname_is_rejected (test_closed_https.GeneratorTests.test_wrong_hostname_is_rejected) ... ok
+test_curl_accepts_current_pin_and_rejects_backup_only_before_http (test_closed_https.NginxIntegrationTests.test_curl_accepts_current_pin_and_rejects_backup_only_before_http) ... ok
+test_host_mismatch_is_not_proxied (test_closed_https.NginxIntegrationTests.test_host_mismatch_is_not_proxied) ... ok
+test_non_tester_is_denied_even_with_forged_forwarded_headers (test_closed_https.NginxIntegrationTests.test_non_tester_is_denied_even_with_forged_forwarded_headers) ... ok
+test_operator_can_reach_operator_routes_but_not_tester_routes (test_closed_https.NginxIntegrationTests.test_operator_can_reach_operator_routes_but_not_tester_routes) ... ok
+test_operator_paths_are_denied_to_tester_including_normalization_variants (test_closed_https.NginxIntegrationTests.test_operator_paths_are_denied_to_tester_including_normalization_variants) ... ok
+test_tester_reaches_api_with_verified_tls_and_real_source_header (test_closed_https.NginxIntegrationTests.test_tester_reaches_api_with_verified_tls_and_real_source_header) ... ok
+test_tls12_and_tls13_succeed_and_tls11_is_rejected (test_closed_https.NginxIntegrationTests.test_tls12_and_tls13_succeed_and_tls11_is_rejected) ... ok
+test_unknown_routes_are_not_proxied (test_closed_https.NginxIntegrationTests.test_unknown_routes_are_not_proxied) ... ok
+test_untrusted_certificate_and_wrong_hostname_are_rejected_by_client (test_closed_https.NginxIntegrationTests.test_untrusted_certificate_and_wrong_hostname_are_rejected_by_client) ... ok
+test_upgrade_headers_reach_only_hub_route (test_closed_https.NginxIntegrationTests.test_upgrade_headers_reach_only_hub_route) ... ok
+
+----------------------------------------------------------------------
+Ran 21 tests in 1.084s
+
+OK

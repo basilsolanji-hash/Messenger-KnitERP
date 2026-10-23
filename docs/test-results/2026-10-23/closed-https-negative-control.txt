@@ -1,0 +1,24 @@
+test_operator_paths_are_denied_to_tester_including_normalization_variants (negative_control.NginxIntegrationTests.test_operator_paths_are_denied_to_tester_including_normalization_variants) ... 
+  test_operator_paths_are_denied_to_tester_including_normalization_variants (negative_control.NginxIntegrationTests.test_operator_paths_are_denied_to_tester_including_normalization_variants) (path='/api/v1/DEV/sms/code') ... FAIL
+  test_operator_paths_are_denied_to_tester_including_normalization_variants (negative_control.NginxIntegrationTests.test_operator_paths_are_denied_to_tester_including_normalization_variants) (path='/API/V1/DEV/sms/code') ... FAIL
+
+======================================================================
+FAIL: test_operator_paths_are_denied_to_tester_including_normalization_variants (negative_control.NginxIntegrationTests.test_operator_paths_are_denied_to_tester_including_normalization_variants) (path='/api/v1/DEV/sms/code')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/6e1c5e677971/Messenger-KnitERP/scripts/tests/test_closed_https.py", line 256, in test_operator_paths_are_denied_to_tester_including_normalization_variants
+    self.assertEqual(403, status)
+AssertionError: 403 != 200
+
+======================================================================
+FAIL: test_operator_paths_are_denied_to_tester_including_normalization_variants (negative_control.NginxIntegrationTests.test_operator_paths_are_denied_to_tester_including_normalization_variants) (path='/API/V1/DEV/sms/code')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/6e1c5e677971/Messenger-KnitERP/scripts/tests/test_closed_https.py", line 256, in test_operator_paths_are_denied_to_tester_including_normalization_variants
+    self.assertEqual(403, status)
+AssertionError: 403 != 200
+
+----------------------------------------------------------------------
+Ran 1 test in 0.629s
+
+FAILED (failures=2)

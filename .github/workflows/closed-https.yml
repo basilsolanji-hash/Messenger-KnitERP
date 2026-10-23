@@ -1,0 +1,30 @@
+name: Closed HTTPS configuration
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install local test transport
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends nginx openssl curl
+      - name: Check generator and actual Nginx behavior
+        shell: bash
+        env:
+          NGINX_BINARY: /usr/sbin/nginx
+        run: |
+          python3 -m py_compile scripts/prepare-closed-https.py scripts/tests/test_closed_https.py
+          python3 -m unittest discover -s scripts/tests -v 2>&1 | tee closed-https-tests.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: closed-https-results
+          path: closed-https-tests.log
