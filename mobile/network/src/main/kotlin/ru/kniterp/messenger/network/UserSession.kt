@@ -47,9 +47,22 @@ sealed interface LoginResult {
 }
 
 /** SMS login and PIN step for one activation (one deviceId, one key set). Network calls never hold a vault transaction. */
-class Login(private val api: AuthApi, private val store: AuthStore, private val signer: DeviceSigner, private val device: LocalDevice) {
+interface LoginSteps {
+    fun pending(): PendingLogin?
+    fun activated(): Boolean = false
+    fun requestCode(phone: String): Challenge
+    fun verifyCode(code: String): LoginResult
+    fun verifyPin(pin: String): LoginResult
+    fun abandon()
+}
+
+class Login(private val api: AuthApi, private val store: AuthStore, private val signer: DeviceSigner, private val device: LocalDevice) : LoginSteps {
+    @Synchronized override fun pending(): PendingLogin? = store.load().pendingLogin
+    @Synchronized override fun activated(): Boolean = store.load().session != null
+    @Synchronized override fun abandon() { store.save(store.load().copy(pendingLogin = null)) }
+
     /** Retries after a lost response reuse the saved requestId: the server returns the same challenge and sends no new SMS. */
-    @Synchronized fun requestCode(phone: String): Challenge {
+    @Synchronized override fun requestCode(phone: String): Challenge {
         require(phone.matches(Regex("\\+[1-9][0-9]{1,14}"))) { "PHONE_INVALID" }
         val state = store.load()
         val prior = state.pendingLogin?.takeIf { it.phone == phone && it.challenge == null }
@@ -61,14 +74,14 @@ class Login(private val api: AuthApi, private val store: AuthStore, private val 
         return challenge
     }
 
-    @Synchronized fun verifyCode(code: String): LoginResult {
+    @Synchronized override fun verifyCode(code: String): LoginResult {
         require(code.length == 6 && code.all { it in '0'..'9' }) { "CODE_FORMAT" }
         val pending = requireNotNull(store.load().pendingLogin?.takeIf { it.challenge != null }) { "NO_CHALLENGE" }
         val activation = api.verifyCode(SmsVerifyRequest(pending.challenge!!.challengeId, pending.phone, code, proof(pending)))
         return finish(pending, activation)
     }
 
-    @Synchronized fun verifyPin(pin: String): LoginResult {
+    @Synchronized override fun verifyPin(pin: String): LoginResult {
         require(pin.length == 6 && pin.all { it in '0'..'9' }) { "PIN_FORMAT" }
         val pending = requireNotNull(store.load().pendingLogin?.takeIf { it.pinRequired && it.challenge != null }) { "NO_PIN_STEP" }
         return finish(pending, api.verifyPin(PinVerifyRequest(pending.challenge!!.challengeId, pending.phone, pin, proof(pending))))
@@ -135,10 +148,11 @@ class UserSession(private val api: AuthApi, private val store: AuthStore, privat
     }
 
     @Synchronized fun logout() {
-        val token = access?.first ?: runCatching { current() }.getOrNull()
-        if (token != null) runCatching { api.logout(token) } // The local session ends even if the server is unreachable.
-        access = null
+        val token = access?.first
+        // Commit local logout BEFORE a request can block or the process can die. Never rotate a refresh just to log out.
         store.save(AuthState(ended = "LOGOUT"))
+        access = null
+        if (token != null) runCatching { api.logout(token) } // Remote revocation is best effort while offline.
     }
 
     private fun end(code: String): Nothing {
