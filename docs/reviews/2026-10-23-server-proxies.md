@@ -46,3 +46,10 @@ Production guard сохранён. Android, основная ERP, схема Б�
 
 Справка Microsoft по доверенным прокси и middleware:
 https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/proxy-load-balancer?view=aspnetcore-10.0
+
+## Наблюдение GitHub Actions
+
+Для коммита 833d53d1a9e5fd295ceced16994b0708b2b73087 server run 39952921850 / job 120411570337
+и mobile run 39952921898 / job 120411570636 завершены с failure. У обоих runner_id=0 и steps=[].
+Задания не дошли до выполнения restore/build/test. Это не подтверждение ошибки тестов приложения;
+причина отсутствия runner не установлена. Полный серверный CI по этим запускам не выполнен.

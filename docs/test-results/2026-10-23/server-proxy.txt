@@ -15,3 +15,8 @@ Production guard retained; no deployment or main merge.
 server-proxy-unit.trx SHA256 ecc44eba2d21b2a6234eaa1096b971f6661ec251b7da6d0c1c3cb57f28af6477
 server-proxy-negative-control.trx SHA256 0c821ad1b46200d7811fc05a78ca3a491e9777a66dd5ccae6456c10b41865b48
 TrustedProxyPolicy.cs SHA256 c98c3e2ad096fd66f3c43f2ec2b0a5dc84620020b6ecff58d56b8aadcf893da6
+
+GitHub Actions observed for code commit 833d53d1a9e5fd295ceced16994b0708b2b73087:
+Server run 39952921850, job 120411570337: failure, runner_id=0, steps=[].
+Mobile run 39952921898, job 120411570636: failure, runner_id=0, steps=[].
+Neither job executed build/test steps; missing runner cause is unknown. Full CI is not confirmed.
