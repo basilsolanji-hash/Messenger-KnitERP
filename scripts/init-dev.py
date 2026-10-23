@@ -16,6 +16,8 @@ content = '\n'.join([
     'Auth__SigningKey=' + base64.b64encode(secrets.token_bytes(48)).decode(),
     'Dev__ProvisioningKey=' + secrets.token_urlsafe(48),
     'Dev__AutoMigrate=true',
+    # Explicit opt-in for this loopback-only synthetic operator environment.
+    'Dev__EnableOperatorEndpoints=true',
     'Auth__PhoneIndexKey=' + base64.b64encode(secrets.token_bytes(32)).decode(),
     'Auth__SmsCodeKey=' + base64.b64encode(secrets.token_bytes(32)).decode(),
     'Auth__PinPepper=' + base64.b64encode(secrets.token_bytes(32)).decode(),

@@ -32,6 +32,7 @@ def main():
                     "ASPNETCORE_CONTENTROOT": str(root / "server/Messenger.Api/bin/Release/net10.0"),
                     "ConnectionStrings__Messenger": database, "Dev__AutoMigrate": "true",
                     "Dev__ProvisioningKey": secrets.token_urlsafe(48),
+                    "Dev__EnableOperatorEndpoints": "true",
                     "Auth__SigningKey": base64.b64encode(secrets.token_bytes(32)).decode(),
                     "Auth__PhoneIndexKey": base64.b64encode(secrets.token_bytes(32)).decode(),
                     "Auth__SmsCodeKey": base64.b64encode(secrets.token_bytes(32)).decode(),

@@ -1,0 +1,12 @@
+Operator endpoint default-off verification — 2026-10-23 UTC
+Base: 59140dfe40563e856d88eaeea770c8e23243588c (PR #5)
+SDK: 10.0.402, same official SHA512-verified SDK used for SMS adapter increment.
+Locked restore passed; no dependency or package-lock changes.
+Release build uses TreatWarningsAsErrors=true in both projects.
+Command: dotnet test server/Messenger.Tests -c Release --no-restore --filter 'Category!=PostgreSQL' --logger 'trx;LogFileName=server-operator-unit.trx'
+Result: 69 executed, 69 passed, 0 failed, 0 skipped. 59 existing plus 10 new HTTP/startup cases.
+New HTTP cases run the actual Program via WebApplicationFactory/TestServer. QueueWorker is removed only in this routing test host. A database connection interceptor throws/counts any connection attempt. Zero database attempts and no real provider calls.
+Checked: disabled/omitted flag + valid operator key => 404 for all four dev POST routes and OpenAPI; enabled flag + missing/wrong key => 401; real provider => no fake-code endpoint; invalid flag/short key => startup failure; Production + opt-in => startup failure. Public SMS route still mapped (400 malformed JSON), /me still protected (401), liveness 200.
+Python syntax: py_compile scripts/init-dev.py scripts/check-e2ee.py passed.
+Isolated init-dev execution: explicit opt-in, Fake only, mode 0600, no secret values on stdout/stderr; second run fails without changing original credentials.
+PostgreSQL tests compiled but excluded. No PostgreSQL flow, live HTTPS, real SMS, E2EE smoke clients or two-phone acceptance executed in this increment.

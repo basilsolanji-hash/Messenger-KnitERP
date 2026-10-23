@@ -120,6 +120,7 @@ public sealed class AuthHost : WebApplicationFactory<Program>
         builder.UseSetting("ConnectionStrings:Messenger", database.Connection);
         builder.UseSetting("Dev:DataProtectionPath", Path.Combine(Path.GetTempPath(), "kniterp-test-dp-" + database.Schema));
         builder.UseSetting("Auth:Sms:Provider", "Fake");
+        builder.UseSetting("Dev:EnableOperatorEndpoints", "true");
         builder.UseSetting("Auth:Pin:Argon2MemoryKiB", "19456"); // Faster tests; production parameters are measured separately.
         builder.UseSetting("Auth:Pin:Argon2Ops", "3"); // libsodium's Argon2id minimum.
         builder.UseSetting("Logging:LogLevel:Default", "Trace");

@@ -16,7 +16,8 @@ var builder = WebApplication.CreateBuilder(args);
 if (!builder.Environment.IsDevelopment())
     throw new InvalidOperationException("Milestone 0 is development-only. Production registration is not implemented.");
 var key = Access.Key(builder.Configuration);
-if (builder.Configuration["Dev:ProvisioningKey"] is not { Length: >= 40 })
+var enableOperatorEndpoints = builder.Configuration.GetValue<bool>("Dev:EnableOperatorEndpoints");
+if (enableOperatorEndpoints && builder.Configuration["Dev:ProvisioningKey"] is not { Length: >= 40 })
     throw new InvalidOperationException("Configure a random Dev:ProvisioningKey using scripts/init-dev.py.");
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddDbContext<MessengerDb>(o => o.UseNpgsql(builder.Configuration.GetConnectionString("Messenger")
@@ -119,66 +120,70 @@ app.UseRateLimiter();
 app.MapGet("/health/live", () => Results.Ok(new { status = "up", milestone = "0", productionReady = false }));
 app.MapGet("/health/ready", async (MessengerDb db, CancellationToken ct) => await db.Database.CanConnectAsync(ct)
     ? Results.Ok(new { status = "ready" }) : Results.StatusCode(503));
-app.MapOpenApi().RequireAuthorization();
-
-app.MapPost("/api/v1/dev/accounts", async (HttpContext context, ProvisionRequest request, MessengerDb db, Access access, IConfiguration config, CancellationToken ct) =>
+// Operator routes and API exploration are absent unless deliberately enabled.
+if (enableOperatorEndpoints)
 {
-    Access.ProvisioningKey(context, config);
-    ValidateProvision(request);
-    var account = new Account { Id = Guid.NewGuid(), DisplayName = request.DisplayName.Trim() };
-    var device = new Device { Id = request.DeviceId, AccountId = account.Id, Generation = 1, IdentityKey = request.IdentityKey, RegistrationId = request.RegistrationId };
-    Transport.Require(!await db.Devices.AnyAsync(x => x.Id == device.Id, ct), "DEVICE_ALREADY_EXISTS", 409);
-    db.Accounts.Add(account); db.Devices.Add(device);
-    await db.SaveChangesAsync(ct);
-    return Results.Ok(access.Issue(account, device));
-});
-app.MapPost("/api/v1/dev/accounts/{accountId:guid}/replace-device", async (Guid accountId, HttpContext ctx, ProvisionRequest request,
-    MessengerDb db, Access access, IConfiguration config, ConnectionRegistry registry, CancellationToken ct) =>
-{
-    Access.ProvisioningKey(ctx, config);
-    ValidateProvision(request);
-    await using var tx = await db.Database.BeginTransactionAsync(ct);
-    var rows = await db.Accounts.FromSqlInterpolated($"SELECT * FROM accounts WHERE \"Id\" = {accountId} FOR UPDATE").ToListAsync(ct);
-    Transport.Require(rows.Count == 1, "NOT_FOUND", 404);
-    var account = rows[0];
-    Transport.Require(!await db.Devices.AnyAsync(x => x.Id == request.DeviceId, ct), "DEVICE_ALREADY_EXISTS", 409);
-    var device = new Device { Id = request.DeviceId, AccountId = accountId, RegistrationId = request.RegistrationId, IdentityKey = request.IdentityKey };
-    var old = await AuthService.ReplaceDevice(db, account, device, TimeProvider.System.GetUtcNow(), ct);
-    Transport.Require(old is not null, "NOT_FOUND", 404);
-    await tx.CommitAsync(ct);
-    registry.Revoke(old!.Value);
-    return Results.Ok(access.Issue(account, device));
-});
+    app.MapOpenApi().RequireAuthorization();
 
-// Operator-only renewal for the SAME synthetic phone and keys. No admin credential reaches Android.
-app.MapPost("/api/v1/dev/accounts/{accountId:guid}/session", async (Guid accountId, HttpContext context,
-    ProvisionRequest request, MessengerDb db, Access access, IConfiguration config, CancellationToken ct) =>
-{
-    Access.ProvisioningKey(context, config);
-    ValidateProvision(request);
-    var account = await db.Accounts.AsNoTracking().SingleOrDefaultAsync(x => x.Id == accountId, ct);
-    var device = await db.Devices.AsNoTracking().SingleOrDefaultAsync(x => x.Id == request.DeviceId && x.AccountId == accountId, ct);
-    Transport.Require(account is not null && device is not null && device.Active && device.Generation == account.Generation &&
-        device.RegistrationId == request.RegistrationId && device.IdentityKey.SequenceEqual(request.IdentityKey), "DEVICE_MISMATCH", 409);
-    return Results.Ok(access.Issue(account!, device!));
-});
-
-// Synthetic test stand only: reads a code the in-memory fake provider "sent". Not mapped with a real provider,
-// requires the operator key, and takes the challenge id in the body so no number or code appears in a URL.
-if (app.Services.GetService<FakeSms>() is { } fakeSms)
-    app.MapPost("/api/v1/dev/sms/code", async (HttpContext context, DevSmsCodeRequest request, MessengerDb db,
-        AuthSecrets secrets, IConfiguration config, CancellationToken ct) =>
+    app.MapPost("/api/v1/dev/accounts", async (HttpContext context, ProvisionRequest request, MessengerDb db, Access access, IConfiguration config, CancellationToken ct) =>
     {
         Access.ProvisioningKey(context, config);
-        var challenge = await db.AuthChallenges.AsNoTracking().SingleOrDefaultAsync(x => x.Id == request.ChallengeId &&
-            x.Operation == ChallengeOperation.Activate, ct);
-        var sent = challenge?.PhoneIndex is { } index ? fakeSms.Sent.LastOrDefault(x =>
-            System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(secrets.PhoneIndex(x.Phone), index)) : default;
-        var code = sent.Text is null ? null : System.Text.RegularExpressions.Regex.Match(sent.Text, @"\b\d{6}\b").Value;
-        Transport.Require(code is { Length: 6 }, "NOT_FOUND", 404);
-        context.Response.Headers.CacheControl = "no-store";
-        return Results.Ok(new { code });
+        ValidateProvision(request);
+        var account = new Account { Id = Guid.NewGuid(), DisplayName = request.DisplayName.Trim() };
+        var device = new Device { Id = request.DeviceId, AccountId = account.Id, Generation = 1, IdentityKey = request.IdentityKey, RegistrationId = request.RegistrationId };
+        Transport.Require(!await db.Devices.AnyAsync(x => x.Id == device.Id, ct), "DEVICE_ALREADY_EXISTS", 409);
+        db.Accounts.Add(account); db.Devices.Add(device);
+        await db.SaveChangesAsync(ct);
+        return Results.Ok(access.Issue(account, device));
     });
+    app.MapPost("/api/v1/dev/accounts/{accountId:guid}/replace-device", async (Guid accountId, HttpContext ctx, ProvisionRequest request,
+        MessengerDb db, Access access, IConfiguration config, ConnectionRegistry registry, CancellationToken ct) =>
+    {
+        Access.ProvisioningKey(ctx, config);
+        ValidateProvision(request);
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        var rows = await db.Accounts.FromSqlInterpolated($"SELECT * FROM accounts WHERE \"Id\" = {accountId} FOR UPDATE").ToListAsync(ct);
+        Transport.Require(rows.Count == 1, "NOT_FOUND", 404);
+        var account = rows[0];
+        Transport.Require(!await db.Devices.AnyAsync(x => x.Id == request.DeviceId, ct), "DEVICE_ALREADY_EXISTS", 409);
+        var device = new Device { Id = request.DeviceId, AccountId = accountId, RegistrationId = request.RegistrationId, IdentityKey = request.IdentityKey };
+        var old = await AuthService.ReplaceDevice(db, account, device, TimeProvider.System.GetUtcNow(), ct);
+        Transport.Require(old is not null, "NOT_FOUND", 404);
+        await tx.CommitAsync(ct);
+        registry.Revoke(old!.Value);
+        return Results.Ok(access.Issue(account, device));
+    });
+
+    // Operator-only renewal for the SAME synthetic phone and keys. No admin credential reaches Android.
+    app.MapPost("/api/v1/dev/accounts/{accountId:guid}/session", async (Guid accountId, HttpContext context,
+        ProvisionRequest request, MessengerDb db, Access access, IConfiguration config, CancellationToken ct) =>
+    {
+        Access.ProvisioningKey(context, config);
+        ValidateProvision(request);
+        var account = await db.Accounts.AsNoTracking().SingleOrDefaultAsync(x => x.Id == accountId, ct);
+        var device = await db.Devices.AsNoTracking().SingleOrDefaultAsync(x => x.Id == request.DeviceId && x.AccountId == accountId, ct);
+        Transport.Require(account is not null && device is not null && device.Active && device.Generation == account.Generation &&
+            device.RegistrationId == request.RegistrationId && device.IdentityKey.SequenceEqual(request.IdentityKey), "DEVICE_MISMATCH", 409);
+        return Results.Ok(access.Issue(account!, device!));
+    });
+
+    // Synthetic test stand only: reads a code the in-memory fake provider "sent". Not mapped with a real provider,
+    // requires the operator key, and takes the challenge id in the body so no number or code appears in a URL.
+    if (app.Services.GetService<FakeSms>() is { } fakeSms)
+        app.MapPost("/api/v1/dev/sms/code", async (HttpContext context, DevSmsCodeRequest request, MessengerDb db,
+            AuthSecrets secrets, IConfiguration config, CancellationToken ct) =>
+        {
+            Access.ProvisioningKey(context, config);
+            var challenge = await db.AuthChallenges.AsNoTracking().SingleOrDefaultAsync(x => x.Id == request.ChallengeId &&
+                x.Operation == ChallengeOperation.Activate, ct);
+            var sent = challenge?.PhoneIndex is { } index ? fakeSms.Sent.LastOrDefault(x =>
+                System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(secrets.PhoneIndex(x.Phone), index)) : default;
+            var code = sent.Text is null ? null : System.Text.RegularExpressions.Regex.Match(sent.Text, @"\b\d{6}\b").Value;
+            Transport.Require(code is { Length: 6 }, "NOT_FOUND", 404);
+            context.Response.Headers.CacheControl = "no-store";
+            return Results.Ok(new { code });
+        });
+}
 
 // Public auth API. Separate from /api/v1/dev; its presence does not lift the Development-only guard above.
 var auth = app.MapGroup("/api/v1/auth").AddEndpointFilter(async (context, next) =>
