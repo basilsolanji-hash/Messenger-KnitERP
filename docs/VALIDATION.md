@@ -136,3 +136,15 @@ ARM64 APK `knitERP-Messenger-0.2.0-dev-arm64.apk`: 45 547 364 байта. SHA-25
 Добавлен `POST /api/v1/dev/sms/code`: только при fake-провайдере, только с операторским ключом. Серверный набор после этого — **50 из 50** на PostgreSQL 18.6, включая проверку, что без ключа ответ 401, а при `SmsRu` маршрута нет. Второй сквозной тест `ServerSmokeTestAuth` прошёл против настоящего API: регистрация по коду; `/me`; refresh новым процессом с подписанным challenge; установка PIN; через 61 с перенос на второе устройство (`PIN_REQUIRED`, неверный PIN не меняет generation, верный — generation 2); старое устройство на ближайшем запросе получает `SessionEnded(SESSION_REVOKED)`; logout нового. Итог JVM-набора — **22 из 22**. В логе API этого прогона (181 строка) нет номера, PIN и refresh token.
 
 Не проверено: компиляция в реальной Gradle-сборке `mobile` (вместе с libsignal и `ServerSmokeTest`), всё, что относится к Android-устройству. Снимок прогона: `test-results/2026-10-22/android-auth-network-jvm.png`.
+
+### Android-вход: экраны и Keystore — 23 октября 2026 года
+
+Добавлены `LoginFlow` (машина состояний экранов в `mobile/network`), `KeystoreSigner`, `AuthModel`, `LoginScreen`, пункт «Вход по номеру телефона» в настройках и 52 строки на ru/be/kk/uz.
+
+| Проверка | Фактический результат |
+| --- | --- |
+| `LoginFlowTest` (JVM): локальная проверка номера и кода без сети, таймер повтора, счётчик попыток, отказ от мёртвого challenge (новый `requestId`, а не повтор), блокировка PIN без запросов, сетевой сбой без смены шага, `DEVICE_REJECTED`, восстановление шага после перезапуска процесса | 9 из 9 |
+| Весь JVM-набор изолированной сборки, включая оба `ServerSmokeTestAuth` против настоящего API (PostgreSQL 18.6, fake SMS) | **31 из 31**; в логе API (181 строка) нет номера, PIN и refresh token |
+| Ресурсы: XML всех четырёх языков разбирается, одинаковые 107 ключей, все `R.string`, на которые ссылаются новые экраны, существуют | Проверено скриптом |
+
+**Не скомпилировано и не запускалось:** `KeystoreSigner.kt`, `AuthModel.kt`, `LoginScreen.kt`, изменения `MainActivity.kt`, инструментальный `KeystoreSignerTest`. Android SDK, AGP и libsignal из этой среды недоступны (`dl.google.com`, `build-artifacts.signal.org`). Первый прогон `:app:assembleDebug :app:assembleDebugAndroidTest` и инструментальных тестов может выявить ошибки компиляции. Переводы be/kk/uz требуют редактуры носителями.
