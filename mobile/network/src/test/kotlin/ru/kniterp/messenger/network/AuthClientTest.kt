@@ -281,6 +281,55 @@ class AuthClientTest {
         assertEquals(AuthState(ended = "LOGOUT"), store.state)
     }
 
+    @Test fun logoutIsDurableBeforeAnyHttpRequest() = fixture { endpoint, base ->
+        val current = issued()
+        on("auth/logout", MockResponse.Builder().code(204).build())
+        store.save(AuthState(session = StoredSession.of(current)))
+        var endedCommitted = false
+        val journal = object : AuthStore {
+            override fun load() = store.load()
+            override fun save(state: AuthState) {
+                if (state.ended == "LOGOUT") {
+                    assertTrue(sent("auth/logout").isEmpty(), "Local logout must precede HTTP")
+                    endedCommitted = true
+                }
+                store.save(state)
+            }
+        }
+        AuthApi.configured(endpoint, base).use { api ->
+            UserSession(api, journal, signer, device).apply { install(current); logout() }
+        }
+        assertTrue(endedCommitted)
+        assertEquals(1, sent("auth/logout").size)
+        assertEquals("LOGOUT", store.load().ended)
+    }
+
+    @Test fun logoutAfterRestartDoesNotSpendOrRotateRefreshToken() = fixture { endpoint, base ->
+        store.save(AuthState(session = StoredSession.of(issued())))
+        AuthApi.configured(endpoint, base).use { api -> UserSession(api, store, signer, device).logout() }
+        assertTrue(requests.isEmpty())
+        assertEquals(AuthState(ended = "LOGOUT"), store.load())
+    }
+
+    @Test fun failedLocalLogoutCommitDoesNotRevokeOrPretendToClearSession() = fixture { endpoint, base ->
+        val current = issued()
+        store.save(AuthState(session = StoredSession.of(current)))
+        val journal = object : AuthStore {
+            override fun load() = store.load()
+            override fun save(state: AuthState) {
+                if (state.ended == "LOGOUT") throw IOException("storage unavailable")
+                store.save(state)
+            }
+        }
+        AuthApi.configured(endpoint, base).use { api ->
+            val session = UserSession(api, journal, signer, device).apply { install(current) }
+            assertFailsWith<IOException> { session.logout() }
+            assertEquals(current.accessToken, session.current())
+        }
+        assertTrue(requests.isEmpty())
+        assertEquals(StoredSession.of(current), store.load().session)
+    }
+
     @Test fun authCallsKeepPinsAndRefuseRedirects() = fixture { endpoint, base ->
         val bad = endpoint.copy(pins = listOf(CertificatePinner.pin(HeldCertificate.Builder().build().certificate),
             CertificatePinner.pin(HeldCertificate.Builder().build().certificate)))
