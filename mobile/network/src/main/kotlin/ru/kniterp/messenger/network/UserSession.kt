@@ -47,9 +47,22 @@ sealed interface LoginResult {
 }
 
 /** SMS login and PIN step for one activation (one deviceId, one key set). Network calls never hold a vault transaction. */
-class Login(private val api: AuthApi, private val store: AuthStore, private val signer: DeviceSigner, private val device: LocalDevice) {
+/** The login operations [LoginFlow] drives; [Login] is the network implementation. */
+interface LoginSteps {
+    fun pending(): PendingLogin?
+    fun requestCode(phone: String): Challenge
+    fun verifyCode(code: String): LoginResult
+    fun verifyPin(pin: String): LoginResult
+    /** Forgets a dead challenge, so the next request gets a NEW requestId instead of replaying the old one. */
+    fun abandon()
+}
+
+class Login(private val api: AuthApi, private val store: AuthStore, private val signer: DeviceSigner, private val device: LocalDevice) : LoginSteps {
+    override fun pending(): PendingLogin? = store.load().pendingLogin
+    override fun abandon() = store.save(store.load().copy(pendingLogin = null))
+
     /** Retries after a lost response reuse the saved requestId: the server returns the same challenge and sends no new SMS. */
-    fun requestCode(phone: String): Challenge {
+    override fun requestCode(phone: String): Challenge {
         val state = store.load()
         val prior = state.pendingLogin?.takeIf { it.phone == phone && it.challenge == null }
         val pending = prior ?: PendingLogin(UUID.randomUUID().toString(), phone)
@@ -60,14 +73,14 @@ class Login(private val api: AuthApi, private val store: AuthStore, private val 
         return challenge
     }
 
-    fun verifyCode(code: String): LoginResult {
+    override fun verifyCode(code: String): LoginResult {
         require(code.length == 6 && code.all { it in '0'..'9' }) { "CODE_FORMAT" }
         val pending = requireNotNull(store.load().pendingLogin?.takeIf { it.challenge != null }) { "NO_CHALLENGE" }
         val activation = api.verifyCode(SmsVerifyRequest(pending.challenge!!.challengeId, pending.phone, code, proof(pending)))
         return finish(pending, activation)
     }
 
-    fun verifyPin(pin: String): LoginResult {
+    override fun verifyPin(pin: String): LoginResult {
         require(pin.length == 6 && pin.all { it in '0'..'9' }) { "PIN_FORMAT" }
         val pending = requireNotNull(store.load().pendingLogin?.takeIf { it.pinRequired && it.challenge != null }) { "NO_PIN_STEP" }
         return finish(pending, api.verifyPin(PinVerifyRequest(pending.challenge!!.challengeId, pending.phone, pin, proof(pending))))
