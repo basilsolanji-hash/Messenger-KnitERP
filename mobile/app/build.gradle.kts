@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     kotlin("android")
+    kotlin("plugin.serialization")
     kotlin("plugin.compose")
     id("com.google.devtools.ksp")
 }
@@ -39,7 +40,6 @@ android {
             useLegacyPackaging = true
         }
     }
-    sourceSets["main"].assets.srcDir("../../assets")
     buildTypes { release { isMinifyEnabled = false } }
 }
 kotlin { jvmToolchain(21) }

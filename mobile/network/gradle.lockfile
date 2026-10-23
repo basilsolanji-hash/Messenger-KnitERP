@@ -38,4 +38,4 @@ org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0=compileClasspath,testComp
 org.jetbrains:annotations:13.0=compileClasspath,kotlinBuildToolsApiClasspath,kotlinCompilerClasspath,kotlinCompilerPluginClasspathMain,kotlinCompilerPluginClasspathTest,testCompileClasspath
 org.jetbrains:annotations:23.0.0=testRuntimeClasspath
 org.signal:libsignal-client:0.105.4=testRuntimeClasspath
-empty=kotlinScriptDefExtensions,testKotlinScriptDefExtensions
+empty=annotationProcessor,kotlinScriptDefExtensions,testKotlinScriptDefExtensions

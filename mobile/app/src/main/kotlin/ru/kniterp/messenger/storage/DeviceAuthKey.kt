@@ -18,6 +18,8 @@ internal class DeviceAuthKey private constructor(private val alias: String) : De
         private fun alias(deviceId: String) = "kniterp.messenger.auth.v1.${Wire.id(deviceId)}"
         private fun store() = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
 
+        fun exists(deviceId: String): Boolean = store().containsAlias(alias(deviceId))
+
         @Synchronized fun create(deviceId: String): DeviceAuthKey {
             val alias = alias(deviceId)
             check(!store().containsAlias(alias)) { "Device auth key already exists" }

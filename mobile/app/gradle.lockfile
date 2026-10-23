@@ -180,6 +180,7 @@ org.jetbrains.kotlin:kotlin-scripting-common:2.2.20=kotlinBuildToolsApiClasspath
 org.jetbrains.kotlin:kotlin-scripting-compiler-embeddable:2.2.20=kotlinBuildToolsApiClasspath
 org.jetbrains.kotlin:kotlin-scripting-compiler-impl-embeddable:2.2.20=kotlinBuildToolsApiClasspath
 org.jetbrains.kotlin:kotlin-scripting-jvm:2.2.20=kotlinBuildToolsApiClasspath
+org.jetbrains.kotlin:kotlin-serialization-compiler-plugin-embeddable:2.2.20=kotlinCompilerPluginClasspathDebug,kotlinCompilerPluginClasspathDebugAndroidTest
 org.jetbrains.kotlin:kotlin-stdlib-common:2.2.20=kotlinCompilerPluginClasspathDebug,kotlinCompilerPluginClasspathDebugAndroidTest
 org.jetbrains.kotlin:kotlin-stdlib-common:2.2.21=debugAndroidTestRuntimeClasspath,debugRuntimeClasspath
 org.jetbrains.kotlin:kotlin-stdlib:2.2.0=_agp_internal_javaPreCompileDebug_kspClasspath,kspDebugAndroidTestKotlinProcessorClasspath,kspDebugKotlinProcessorClasspath

@@ -58,7 +58,7 @@ private fun OsMessenger(model: DemoModel = viewModel()) {
     LaunchedEffect(Unit) { model.start(context.getString(R.string.demo_welcome)) }
     var screen by rememberSaveable { mutableStateOf("chats") }
     var showSafety by rememberSaveable { mutableStateOf(false) }
-    BackHandler(screen == "conversation" || screen == "server") { screen = if (screen == "server") "settings" else "chats" }
+    BackHandler(screen == "conversation" || screen == "server" || screen == "login") { screen = if (screen == "server" || screen == "login") "settings" else "chats" }
     MaterialTheme(colorScheme = scheme) {
         Scaffold(
             topBar = {
@@ -87,8 +87,9 @@ private fun OsMessenger(model: DemoModel = viewModel()) {
             },
         ) { padding ->
             Column(Modifier.fillMaxSize().padding(padding)) {
-                if (screen == "settings") Settings { screen = "server" }
+                if (screen == "settings") Settings(openServer = { screen = "server" }, openLogin = { screen = "login" })
                 else if (screen == "server") NetworkScreen()
+                else if (screen == "login") LoginScreen()
                 else if (state.loading) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -186,7 +187,7 @@ private fun OsMessenger(model: DemoModel = viewModel()) {
 }
 private const val SignalClientLimit = 16 * 1024
 
-@Composable private fun Settings(openServer: () -> Unit) {
+@Composable private fun Settings(openServer: () -> Unit, openLogin: () -> Unit) {
     val selected = AppCompatDelegate.getApplicationLocales().toLanguageTags()
     val options = listOf("" to stringResource(R.string.system_language), "ru" to "Русский", "be" to "Беларуская",
         "kk" to "Қазақша", "uz-Latn" to "O‘zbekcha")
@@ -206,6 +207,7 @@ private const val SignalClientLimit = 16 * 1024
         item { Text(stringResource(R.string.privacy), color = Teal, fontWeight = FontWeight.SemiBold) }
         item { Text(stringResource(R.string.storage_protection)) }
         item { Text(stringResource(R.string.backup_off)) }
+        item { Button(onClick = openLogin) { Text(stringResource(R.string.auth_title)) } }
         item { TextButton(onClick = openServer) { Text(stringResource(R.string.net_title)) } }
         item { Text(stringResource(R.string.development_build), Modifier.padding(top = 24.dp), style = MaterialTheme.typography.labelMedium) }
         item { Text(stringResource(R.string.no_remote_chats), color = Color(0xFF64777D), style = MaterialTheme.typography.bodySmall) }
