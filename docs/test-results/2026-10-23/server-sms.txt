@@ -1,0 +1,13 @@
+SMS.ru adapter verification — 2026-10-23 UTC
+Base: 09837348767dfbdc65653c28cab5e111bb89e0b4 (PR #2)
+Runtime: official .NET SDK 10.0.402 linux-x64, archive SHA512 verified against official release metadata.
+Restore: dotnet restore server/Messenger.Tests --locked-mode — passed; package locks unchanged.
+Check: dotnet test server/Messenger.Tests -c Release --no-restore --filter 'Category!=PostgreSQL' --logger 'trx;LogFileName=server-sms-unit.trx'
+Release build: warnings treated as errors in both projects; passed.
+TRX: 59 executed, 59 passed, 0 failed, 0 skipped. 24 previous cases plus 35 new adapter cases.
+Real provider calls: zero. Synthetic credentials, HttpMessageHandler fixtures and local loopback HTTP only.
+Stalled-body case: real 15-second adapter deadline exercised with HttpClient timeout disabled.
+Oversized stream: unknown Content-Length, 1.6 MiB available; only 16 KiB + 1 byte read, then disposed.
+Redirect case: production SocketsHttpHandler factory, local Kestrel 307; redirect sink received zero requests.
+PostgreSQL cases: compiled but excluded, not executed. No live VPS, paid SMS, HTTPS pin acceptance or two-phone test.
+No changes to ERP or production/main deployment. Existing development-only startup guard retained.

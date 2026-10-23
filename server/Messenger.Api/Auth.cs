@@ -77,7 +77,7 @@ public sealed class AuthService(MessengerDb db, TimeProvider clock, AuthSecrets 
         // The reservation is committed. From here a disconnecting client must not cancel the send, and a crash
         // leaves the challenge in Sending: verifiable until expiry, never sent again automatically.
         SmsResult result;
-        try { result = await sms.Send(phone.E164, $"knitERP: код {code}. Никому не сообщайте его.", CancellationToken.None); }
+        try { result = await sms.Send(phone.E164, $"Ось коммуникации: код {code}. Никому не сообщайте его.", CancellationToken.None); }
         catch (Exception e) when (e is not OutOfMemoryException) { result = SmsResult.Unknown; }
         var state = result switch { SmsResult.Accepted => ChallengeState.Sent, SmsResult.Rejected => ChallengeState.ProviderRejected, _ => ChallengeState.DeliveryUnknown };
         await db.AuthChallenges.Where(x => x.Id == challenge.Id && x.State == ChallengeState.Sending)

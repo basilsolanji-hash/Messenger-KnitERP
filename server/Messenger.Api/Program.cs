@@ -41,8 +41,8 @@ switch (builder.Configuration["Auth:Sms:Provider"])
         builder.Services.AddHttpClient<ISmsSender, SmsRuSender>(SmsRuSender.HttpClientName, c =>
         {
             c.BaseAddress = new Uri("https://sms.ru/");
-            c.Timeout = TimeSpan.FromSeconds(15);
-        });
+            c.Timeout = SmsRuSender.CallTimeout;
+        }).ConfigurePrimaryHttpMessageHandler(SmsRuSender.CreateHttpHandler);
         break;
     default:
         throw new InvalidOperationException("Set Auth:Sms:Provider to Fake (Development only) or SmsRu.");

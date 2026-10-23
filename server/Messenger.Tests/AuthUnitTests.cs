@@ -158,17 +158,17 @@ public sealed class AuthUnitTests(ITestOutputHelper output)
     public void SmsRuAnswersMapConservatively(string json, SmsResult expected)
     {
         using var document = JsonDocument.Parse(json);
-        Assert.Equal(expected, SmsRuSender.Interpret(document.RootElement));
+        Assert.Equal(expected, SmsRuSender.Interpret(document.RootElement, "79001234567"));
     }
 
     [Fact, Trait("Category", "Unit")]
     public async Task SmsRuKeepsKeyOutOfUrlAndTreatsFailuresAsUnknown()
     {
         var stub = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
-        { Content = new StringContent("""{"status":"OK","sms":{"79001234567":{"status":"OK","sms_id":"1"}}}""") });
+        { Content = new StringContent("""{"status":"OK","status_code":100,"sms":{"79001234567":{"status":"OK","status_code":100,"sms_id":"1"}}}""") });
         var config = Config(("Auth:Sms:SmsRu:ApiKey", "SYNTHETIC-KEY-0000"));
         var sender = new SmsRuSender(new HttpClient(stub) { BaseAddress = new Uri("https://sms.ru/") }, config);
-        Assert.Equal(SmsResult.Accepted, await sender.Send("+79001234567", "knitERP: код 000000.", default));
+        Assert.Equal(SmsResult.Accepted, await sender.Send("+79001234567", "Ось коммуникации: код 000000.", default));
         Assert.Equal(HttpMethod.Post, stub.Method);
         Assert.Equal("https://sms.ru/sms/send", stub.Uri!.ToString());
         Assert.DoesNotContain("SYNTHETIC", stub.Uri.ToString());
