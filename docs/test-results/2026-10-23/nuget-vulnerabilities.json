@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "parameters": "--vulnerable --include-transitive",
+  "sources": [
+    "https://api.nuget.org/v3/index.json"
+  ],
+  "projects": [
+    {
+      "path": "/workspace/scratch/6e1c5e677971/Messenger-KnitERP/server/Messenger.Api/Messenger.Api.csproj"
+    }
+  ]
+}

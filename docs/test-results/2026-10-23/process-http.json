@@ -1,0 +1,93 @@
+{
+  "commit": "5c475ecaf46daaae64179871421388b31aa682fd",
+  "checks": [
+    {
+      "operatorEnabled": false,
+      "path": "/health/live",
+      "status": 200
+    },
+    {
+      "operatorEnabled": false,
+      "path": "/api/v1/me",
+      "status": 401
+    },
+    {
+      "operatorEnabled": false,
+      "path": "/openapi/v1.json",
+      "status": 404
+    },
+    {
+      "operatorEnabled": false,
+      "path": "/api/v1/auth/sms/challenges",
+      "status": 400
+    },
+    {
+      "operatorEnabled": false,
+      "path": "/api/v1/dev/accounts",
+      "status": 404
+    },
+    {
+      "operatorEnabled": false,
+      "path": "/api/v1/dev/accounts/00000000-0000-0000-0000-000000000001/replace-device",
+      "status": 404
+    },
+    {
+      "operatorEnabled": false,
+      "path": "/api/v1/dev/accounts/00000000-0000-0000-0000-000000000001/session",
+      "status": 404
+    },
+    {
+      "operatorEnabled": false,
+      "path": "/api/v1/dev/sms/code",
+      "status": 404
+    },
+    {
+      "operatorEnabled": true,
+      "path": "/health/live",
+      "status": 200
+    },
+    {
+      "operatorEnabled": true,
+      "path": "/api/v1/me",
+      "status": 401
+    },
+    {
+      "operatorEnabled": true,
+      "path": "/openapi/v1.json",
+      "status": 401
+    },
+    {
+      "operatorEnabled": true,
+      "path": "/api/v1/auth/sms/challenges",
+      "status": 400
+    },
+    {
+      "operatorEnabled": true,
+      "path": "/api/v1/dev/accounts",
+      "status": 401
+    },
+    {
+      "operatorEnabled": true,
+      "path": "/api/v1/dev/accounts/00000000-0000-0000-0000-000000000001/replace-device",
+      "status": 401
+    },
+    {
+      "operatorEnabled": true,
+      "path": "/api/v1/dev/accounts/00000000-0000-0000-0000-000000000001/session",
+      "status": 401
+    },
+    {
+      "operatorEnabled": true,
+      "path": "/api/v1/dev/sms/code",
+      "status": 401
+    }
+  ],
+  "total": 16,
+  "passed": 16,
+  "transport": "loopback HTTP, two sequential independent Kestrel processes",
+  "smsProvider": "Fake",
+  "livePostgreSql": false,
+  "publicHttps": false,
+  "physicalPhones": false,
+  "secretsInLogs": false
+}
