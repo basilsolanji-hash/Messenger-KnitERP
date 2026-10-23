@@ -1,0 +1,37 @@
+Android registration integration — 2026-10-23
+Base: 4c36caa3f1df9554830d089744791def64f41a2b
+Reviewed Claude source: f2f967c62cd311892604da408980c71182584283
+Executed BEFORE automated workspace cleanup:
+Amazon Corretto 21.0.13.0.10; Gradle 8.14.3; AGP 8.13.2; SDK 36; real libsignal 0.105.4 JNI, no core stubs.
+Command: :app:clean :core:test :network:test :app:assembleDebug :app:assembleDebugAndroidTest
+core: DeliveryTest 5; SignalClientTest 12 = 17 passed.
+network: AuthClientTest 26; PinnedApiTest 7; EnrollmentTest 2; LoginFlowTest 10; ActivationCompletionTest 6 = 51 passed.
+TOTAL: 68 passed; 0 failures/errors/skipped.
+Final clean app build with strict locks and no update flags: BUILD SUCCESSFUL in 1m 56s; 79 tasks, 70 executed, 9 up-to-date.
+Four app ABI APKs and Android instrumentation APK built. Debug ARM64 signature verified with apksigner v2.
+Expected ARM64 native libraries: libsignal_jni.so, libsqlcipher.so, libandroidx.graphics.path.so.
+Device-proof JVM contract: 33 checks passed.
+Four locale XML sets: 112 matching keys, no duplicates.
+A missing serialization-plugin lock was added; disposable Gradle cache/incremental D8 outputs were regenerated before the successful clean build.
+Native: API26 emulator boot observed; last observed stage APK installation. Final instrumentation result and screenshot NOT obtained. Not counted as passed.
+Not executed here: live user login UI + API, server .NET/PostgreSQL regression, real SMS, closed HTTPS/Beget, two physical phones, load tests.
+After cleanup: sources restored and compared to recorded verified Git blob hashes; Gradle/native checks were not rerun after restoration.
+The locally built APKs and raw runtime logs were removed by cleanup; no downloadable APK is claimed for this increment.
+External integration API: draft contracts only, endpoints not implemented.
+
+Recorded/restored matching Git blob SHA:
+AuthModel.kt c1698b3ae6fa736677d5be48206369fc88f086fa
+LoginScreen.kt c695f25aa2908e2caa3f1a0d01e41f27e3a11469
+MainActivity.kt dc5ac9c1631f160fb3dd86a55052a384fa807a20
+DeviceAuthKey.kt 01bcde0bf41f9714b1f602afcd800fadf348b0d5
+UserSession.kt de13ff69735c27063b4cc270033068eaaa182b9a
+LoginFlow.kt f4af954820d56c97a89669ae3d26b74cbba8df74
+ActivationCompletion.kt 44716c5f58d36add3aaa3514bb4c2185882449e4
+app/build.gradle.kts 9d6eb79776264f7e607e551cf2a5ed877e60084a
+app/gradle.lockfile 0b6589aa900e8aa56394a747c166e95b4205bf8e
+network/gradle.lockfile de46936797a2579a5954bb6ff9b6750b6f2b2ab6
+ActivationCompletionTest.kt ffa52359677fb8d64a16e7792c0b567a855dd8c9
+AuthClientTest.kt 0bf6e041fd39f99a7efba9f79f6a40914172c08a
+LoginFlowTest.kt 6498a1633f4b57a088a042f7183b69135b13bb93
+AuthEntryTest.kt 282549155e3b29e85352cebe6c5f7e7644a34ee1
+LanguageResourcesTest.kt 1dab3844c287d1c2f2c5a48d73de46f39bdd5326
