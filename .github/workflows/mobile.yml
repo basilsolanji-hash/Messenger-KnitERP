@@ -32,6 +32,9 @@ jobs:
         with:
           global-json-file: global.json
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
       - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
       - uses: gradle/actions/setup-gradle@v4
       - run: ./gradlew :core:test :network:test :app:assembleDebug :app:assembleDebugAndroidTest

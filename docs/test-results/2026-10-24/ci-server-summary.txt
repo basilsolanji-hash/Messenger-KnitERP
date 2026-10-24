@@ -1,0 +1,7 @@
+Commit fd988e6a632b95b15aac51900c41f045bcb90549
+Server run 40071707357, job 120806356682: success. Standard PostgreSQL 18.6 service.
+2026-10-24T06:50:28.9807218Z Results File: /home/runner/work/Messenger-KnitERP/Messenger-KnitERP/TestResults/_runnervm8k3b6_2026-10-24_06_49_56_net10.0.trx
+2026-10-24T06:50:28.9852248Z Passed!  - Failed:     0, Passed:   104, Skipped:     0, Total:   104, Duration: 32 s - Messenger.Tests.dll (net10.0)
+2026-10-24T06:50:32.9455494Z The given project `Messenger.Api` has no vulnerable packages given the current sources.
+2026-10-24T06:50:34.7542624Z  2026-10-24 06:49:28.440 UTC [1] LOG:  starting PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-10-24T06:50:34.7634390Z  waiting for server to start....2026-10-24 06:49:28.145 UTC [54] LOG:  starting PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit

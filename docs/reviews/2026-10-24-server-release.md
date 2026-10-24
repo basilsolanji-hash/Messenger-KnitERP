@@ -18,10 +18,16 @@ Added separate Compose/HTTPS/backup service templates, a daily Moscow-time backu
 
 **12 backup tests passed** using real age 1.1.1 encryption/decryption and native ephemeral keys. Docker/pg_dump are explicit process fixtures with synthetic bytes, not PostgreSQL. Cases include corrupt ciphertext even after public hash update, valid-part swapping, error cleanup/restart, lock contention, private modes, output preservation, traversal/link/duplicate tar entries and decryption size limits. The fixture bytes are not a valid database dump. Age package SHA256 and signed Ubuntu archive metadata were checked; no host package installation.
 
-GPG was not used in the final design. The new script uses age directly and needs no agent/socket/keyring on the backup host. Existing HTTPS CI workflow now installs age before discovering both suites; hosted execution is a separate unverified result.
+GPG was not used in the final design. The new script uses age directly and needs no agent/socket/keyring on the backup host. Existing HTTPS CI workflow now installs age before discovering both suites; hosted execution later passed 33/33 cases on fd988e6 (run 40071707324).
 
 ## Still required
 
-Actual Docker image build/Compose validation, real PostgreSQL tests and restore into a separate empty instance/volume, service permissions/boot, public HTTPS/CA/pins, offsite copy/retention, real SMS and two physical phones. API and database remain loopback/internal; Development guard, Fake SMS and operator opt-in are retained. No main merge, public deployment, DNS/firewall mutation or paid service call. Full product readiness is not established by this Release build.
+Actual Docker image build/Compose validation, restore into a separate empty PostgreSQL instance/volume, service permissions/boot, public HTTPS/CA/pins, offsite copy/retention, real SMS and two physical phones. API and database remain loopback/internal; Development guard, Fake SMS and operator opt-in are retained. No main merge, public deployment, DNS/firewall mutation or paid service call. Full product readiness is not established by this Release build.
 
 Evidence: [build log](../test-results/2026-10-24/build.log), [TRX](../test-results/2026-10-24/server-build.trx), [backup tests](../test-results/2026-10-24/backup-tests.log), [published process checks](../test-results/2026-10-24/publish-smoke.json), [unit syntax scope](../test-results/2026-10-24/unit-syntax.log). Deployment instructions: [deploy/README.md](../../deploy/README.md).
+
+## Hosted CI follow-up on fd988e6
+
+The previous runner scheduling blocker cleared. Server run 40071707357/job 120806356682 passed all **104 tests**, zero failed/skipped, against the standard PostgreSQL **18.6** service. This includes the 69 non-PostgreSQL cases plus 35 PostgreSQL cases. NuGet vulnerability check also passed without reported vulnerable API packages. Closed HTTPS run 40071707324/job 120806356546 passed **33 tests** (21 gateway and 12 backup), with a real Nginx and age installed by the runner. Summaries are committed under docs/test-results/2026-10-24. These results do not establish two independent API processes sharing a DB, actual backup restore or VPS/phone acceptance.
+
+Android run 40071707361 stopped at setup-android before Gradle because its default sdkmanager package `tools` is no longer available. Upstream action.yml confirms packages defaults to `tools platform-tools`. The workflow now explicitly requests `platform-tools`; existing explicit API36/build-tools installation and all test/smoke steps remain. License acceptance behavior is unchanged; verbose license logging is disabled. YAML parsed locally; the corrected hosted run must be observed separately. No Android application source changed.
