@@ -1,0 +1,23 @@
+name: Server container and restore
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  accept:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install backup transport
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends age
+      - name: Verify actual image and isolated database restore
+        run: python3 scripts/check-server-container.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: server-container-report
+          path: server-container-report.json
