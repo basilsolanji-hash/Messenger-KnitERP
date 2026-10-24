@@ -17,6 +17,13 @@ import urllib.request
 import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
+PHASE = 'preflight'
+
+
+def phase(value):
+    global PHASE
+    PHASE = value
+    print('CI container phase: ' + value, flush=True)
 
 
 def execute(command, *, input=None, timeout=180):
@@ -56,7 +63,11 @@ def main():
     if (ROOT / '.env').exists():
         raise RuntimeError('Refusing to use an existing deployment environment.')
     compose = ['docker', 'compose', '--project-directory', str(ROOT), '-f', str(ROOT / 'compose.yaml')]
-    if execute(compose + ['ps', '--all', '--quiet']).strip():
+    # Compose cannot parse the required password interpolation before init-dev creates .env.
+    # Inspect existing project labels directly, without evaluating configuration or creating credentials.
+    if 'name: kniterp-messenger-dev' not in (ROOT / 'compose.yaml').read_text():
+        raise RuntimeError('Unexpected source project name; review the isolation guard.')
+    if execute(['docker', 'ps', '--all', '--quiet', '--filter', 'label=com.docker.compose.project=kniterp-messenger-dev']).strip():
         raise RuntimeError('Refusing to use existing Compose containers.')
     spec = importlib.util.spec_from_file_location('server_backup', ROOT / 'scripts/server-backup.py')
     backup = importlib.util.module_from_spec(spec)
@@ -64,11 +75,14 @@ def main():
     restore_name = 'os-restore-ci-' + uuid.uuid4().hex
     source_created = restore_created = False
     try:
+        phase('initialize isolated source environment')
         execute(['python3', str(ROOT / 'scripts/init-dev.py')])
         values = dict(line.split('=', 1) for line in (ROOT / '.env').read_text().splitlines() if line and not line.startswith('#'))
         source_created = True
+        phase('build actual image and start source Compose')
         execute(compose + ['up', '--build', '--detach', '--wait'], timeout=600)
         wait_for(lambda: request('/health/ready'))
+        phase('seed synthetic API storage and Data Protection cursor')
         session = request('/api/v1/dev/accounts', operator=values['Dev__ProvisioningKey'], body={
             'displayName': 'Synthetic CI restore fixture', 'deviceId': str(uuid.uuid4()), 'registrationId': 1,
             'identityKey': base64.b64encode(b'\x05' + secrets.token_bytes(32)).decode()})
@@ -85,6 +99,7 @@ def main():
             identity = work / 'backup.identity'
             execute(['age-keygen', '-o', str(identity)])
             recipient = execute(['age-keygen', '-y', str(identity)]).decode().strip()
+            phase('real Compose encrypted backup and verification')
             saved = backup.backup(ROOT, recipient, work / 'backups', quiesce=True,
                                   revision=os.environ.get('GITHUB_SHA'))
             verified = backup.verify(saved, identity, work / 'verified')
@@ -92,6 +107,7 @@ def main():
             keys = list((verified / 'server-state/protection').glob('key-*.xml'))
             assert keys, 'A real Data Protection key must survive the encrypted round trip.'
             # No network, no published port, brand-new anonymous PostgreSQL volume; never the source instance.
+            phase('restore into separate empty PostgreSQL instance')
             execute(['docker', 'run', '--detach', '--rm', '--name', restore_name, '--network', 'none',
                      '--env', 'POSTGRES_HOST_AUTH_METHOD=trust', '--env', 'POSTGRES_USER=messenger',
                      '--env', 'POSTGRES_DB=restorecheck', 'postgres:18'])
@@ -106,6 +122,7 @@ def main():
             counts = execute(['docker', 'exec', restore_name, 'psql', '--username=messenger', '--dbname=restorecheck',
                 '-X', '-A', '-t', '--command', 'SELECT (SELECT count(*) FROM accounts), (SELECT count(*) FROM devices), (SELECT count(*) FROM envelopes);']).decode().strip()
             assert counts == '1|1|1', 'Restored fixture row counts do not match.'
+            phase('check restored data and original API recovery')
             # Original API was restarted by backup and still accepts the original session/cursor.
             wait_for(lambda: request('/health/ready'))
             assert request('/api/v1/me', bearer=session['accessToken'])['accountId'] == session['accountId']
@@ -132,5 +149,5 @@ if __name__ == '__main__':
     try:
         main()
     except Exception as error:
-        print('Container acceptance failed: ' + type(error).__name__)
+        print('Container acceptance failed during ' + PHASE + ': ' + type(error).__name__)
         raise SystemExit(1)
