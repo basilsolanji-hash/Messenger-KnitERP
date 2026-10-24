@@ -1,0 +1,7 @@
+Source commit 5e86ece86f56e74cbdf392e760ddd6fc1f07bd13
+Run 40072241060, job 120807994067: success. Instrumentation APK built but not executed.
+2026-10-24T06:58:07.3225593Z Device proof JVM contract: 33 checks passed
+2026-10-24T07:02:12.0332881Z BUILD SUCCESSFUL in 3m 43s
+2026-10-24T07:02:34.0948976Z > Task :core:serverSmoke
+2026-10-24T07:03:04.1947794Z > Task :network:serverSmoke
+2026-10-24T07:03:41.1748656Z BUILD SUCCESSFUL in 1m 19s
