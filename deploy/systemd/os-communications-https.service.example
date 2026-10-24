@@ -1,0 +1,31 @@
+[Unit]
+Description=Os Communications isolated closed HTTPS gateway
+After=network-online.target os-communications-compose.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=os-closed-https
+Group=os-closed-https
+ExecStartPre=/usr/sbin/nginx -t -p /etc/os-communications-https-v1/ -c /etc/os-communications-https-v1/nginx.conf
+ExecStart=/usr/sbin/nginx -p /etc/os-communications-https-v1/ -c /etc/os-communications-https-v1/nginx.conf
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+KillSignal=SIGQUIT
+UMask=0077
+NoNewPrivileges=true
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/etc/os-communications-https-v1/runtime
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictSUIDSGID=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+[Install]
+WantedBy=multi-user.target

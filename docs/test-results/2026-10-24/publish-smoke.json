@@ -1,0 +1,13 @@
+{
+  "sourceCommit": "a0242d3562d04fb5c9310b0bc77663466b0a8883",
+  "publishedApiHttpChecks": {
+    "/health/live": 200,
+    "/api/v1/me": 401,
+    "/openapi/v1.json": 404,
+    "/api/v1/dev/accounts": 404
+  },
+  "transport": "loopback HTTP real Kestrel process",
+  "livePostgreSql": false,
+  "publicHttps": false,
+  "secretsInLogs": false
+}

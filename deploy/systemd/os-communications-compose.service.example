@@ -1,0 +1,19 @@
+[Unit]
+Description=Os Communications closed-test Compose services
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Install the checkout at this path; .env must be private and present before enabling.
+WorkingDirectory=/opt/os-communications
+ExecStart=/usr/bin/docker compose --project-directory /opt/os-communications -f /opt/os-communications/compose.yaml -f /opt/os-communications/deploy/compose.runtime.yaml up --detach --wait
+ExecStop=/usr/bin/docker compose --project-directory /opt/os-communications -f /opt/os-communications/compose.yaml -f /opt/os-communications/deploy/compose.runtime.yaml stop --timeout 30
+TimeoutStartSec=600
+TimeoutStopSec=90
+# No down -v, volume pruning or credential generation during startup.
+
+[Install]
+WantedBy=multi-user.target

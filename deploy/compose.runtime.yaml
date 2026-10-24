@@ -1,0 +1,6 @@
+# Explicit closed-test runtime overlay. Never exposes extra ports or changes credentials.
+services:
+  db:
+    restart: unless-stopped
+  api:
+    restart: unless-stopped

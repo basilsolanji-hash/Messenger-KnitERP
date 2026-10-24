@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily encrypted Os Communications closed-test snapshot
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 Europe/Moscow
+RandomizedDelaySec=10m
+Persistent=true
+Unit=os-communications-backup.service
+
+[Install]
+WantedBy=timers.target

@@ -15,7 +15,7 @@ jobs:
       - name: Install local test transport
         run: |
           sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends nginx openssl curl
+          sudo apt-get install --yes --no-install-recommends nginx openssl curl age
       - name: Check generator and actual Nginx behavior
         shell: bash
         env:

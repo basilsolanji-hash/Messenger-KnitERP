@@ -1,0 +1,14 @@
+[Unit]
+Description=Os Communications encrypted closed-test snapshot
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/os-communications
+# Non-secret config: OS_BACKUP_RECIPIENT is the independently verified native age public recipient.
+EnvironmentFile=/etc/os-communications/backup.env
+ExecStart=/usr/bin/python3 /opt/os-communications/scripts/server-backup.py backup --root /opt/os-communications --recipient ${OS_BACKUP_RECIPIENT} --destination /var/backups/os-communications --quiesce-api
+TimeoutStartSec=900
+UMask=0077
+# The Docker administrator controls this job; membership in the docker group is root-equivalent.
