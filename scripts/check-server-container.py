@@ -112,13 +112,18 @@ def main():
                      '--env', 'POSTGRES_HOST_AUTH_METHOD=trust', '--env', 'POSTGRES_USER=messenger',
                      '--env', 'POSTGRES_DB=restorecheck', 'postgres:18'])
             restore_created = True
-            wait_for(lambda: execute(['docker', 'exec', restore_name, 'pg_isready', '-U', 'messenger', '-d', 'restorecheck']))
+            # The entrypoint's temporary init server accepts Unix-socket connections before init finishes.
+            # TCP + an actual query requires the final server and the requested database.
+            wait_for(lambda: execute(['docker', 'exec', restore_name, 'psql', '--host=127.0.0.1',
+                '--username=messenger', '--dbname=restorecheck', '-X', '-A', '-t', '--command', 'SELECT 1;']))
+            phase('restore authenticated dump into isolated PostgreSQL')
             with (verified / 'database.dump').open('rb') as source:
                 result = subprocess.run(['docker', 'exec', '-i', restore_name, 'pg_restore', '--username=messenger',
                     '--dbname=restorecheck', '--exit-on-error', '--single-transaction', '--no-owner', '--no-acl'],
                     stdin=source, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=120)
             if result.returncode:
                 raise RuntimeError('Restore into the separate empty PostgreSQL instance failed.')
+            phase('validate restored table counts')
             counts = execute(['docker', 'exec', restore_name, 'psql', '--username=messenger', '--dbname=restorecheck',
                 '-X', '-A', '-t', '--command', 'SELECT (SELECT count(*) FROM accounts), (SELECT count(*) FROM devices), (SELECT count(*) FROM envelopes);']).decode().strip()
             assert counts == '1|1|1', 'Restored fixture row counts do not match.'
