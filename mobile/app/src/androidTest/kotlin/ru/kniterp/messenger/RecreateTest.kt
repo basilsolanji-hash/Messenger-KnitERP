@@ -40,11 +40,16 @@ class RecreateTest {
     private fun shown(matcher: SemanticsMatcher) =
         compose.waitUntil(60_000) { runCatching { compose.onNode(hasScrollToNodeAction()).performScrollToNode(matcher) }.isSuccess }
     private val origin = "https://recreate.example/"
-    private fun openLogin() {
-        compose.onNodeWithText(s(R.string.settings)).performClick()
-        shown(hasText(s(R.string.auth_title)))
-        compose.onNodeWithText(s(R.string.auth_title)).performClick()
-        waitFor(hasSetTextAction())
+    /** Retried: a keyboard left over from the previous activity can swallow the first click. */
+    private fun openLogin() = compose.waitUntil(90_000) {
+        runCatching {
+            if (compose.onAllNodes(hasText(s(R.string.auth_title))).fetchSemanticsNodes().isEmpty())
+                compose.onNodeWithText(s(R.string.settings)).performClick()
+            compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(s(R.string.auth_title)))
+            compose.onNodeWithText(s(R.string.auth_title)).performClick()
+        }
+        compose.waitForIdle()
+        compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty()
     }
     /** On Android 8 a just-opened keyboard covers the next button and swallows the click. */
     private fun hideKeyboard() = scenario!!.onActivity {

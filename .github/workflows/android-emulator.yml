@@ -200,7 +200,7 @@ jobs:
                   return [l for l in open(os.path.join(logs, name), errors='replace') if l.strip() and 'Seeding context' not in l and 'val in interceptor' not in l]
               except FileNotFoundError:
                   return []
-          for name, keep in [('device.txt', 5), ('avd.txt', 8), ('emulator.txt', 15), ('api.txt', 30), ('front.txt', 10)]:
+          for name, keep in [('device.txt', 5), ('emulator.txt', 15), ('api.txt', 30)]:
               if lines(name): note(name, ''.join(lines(name)[-keep:])[-3500:])
           build = [l for l in lines('build.txt') if l.startswith('e: ') or 'FAILED' in l or 'Execution failed' in l]
           if build: note('build.txt', ''.join(build[:30])[:3500])
@@ -220,10 +220,29 @@ jobs:
                   at = text.find(thread)
                   if at >= 0: note(title, os.path.relpath(path, logs) + '\n' + '\n'.join(text[at:].splitlines()[:45]))
           if lines('watchdog.txt'): note('watchdog.txt', ''.join(lines('watchdog.txt')[-25:])[-3500:])
+          all_lines = lines('logcat.txt')
+          for i, l in enumerate(all_lines):
+              if 'FATAL EXCEPTION' in l:
+                  block = [x for x in all_lines[i:i + 120] if 'AndroidRuntime' in x]
+                  cause = next((j for j, x in enumerate(block) if 'Caused by' in x), 0)
+                  note('crash', ''.join(block[:4] + block[cause:cause + 40])[:3500])
+                  break
+          PY
+      # Separate step: GitHub keeps at most 10 error annotations per step.
+      - name: Annotate thread dumps
+        if: failure()
+        run: |
+          python3 - <<'PY'
+          import glob, os
+          logs = os.environ['LOGS']
+          def note(title, text):
+              text = text.replace('%', '%25').replace('\r', '').replace('\n', '%0A')[:3500]
+              print(f"::error title={title}::{text}")
           for path in sorted(glob.glob(os.path.join(logs, 'jdb-*.txt'))):
               blocks, name = {}, None
               for line in open(path, errors='replace'):
-                  if line.strip() and not line.startswith((' ', '\t', '>')) and line.rstrip().endswith(':'):
+                  while line.startswith('> '): line = line[2:]  # jdb prompt before the thread name
+                  if line.strip() and not line.startswith((' ', '\t')) and line.rstrip().endswith(':'):
                       name = line.strip()[:-1]; blocks[name] = []
                   elif name is not None and line.strip():
                       blocks[name].append(line.rstrip())
@@ -232,13 +251,6 @@ jobs:
               pick = [n for n in blocks if n == 'main' or n.startswith('Instr:')]
               pick += [n for n in blocks if n not in pick and any('ru.kniterp' in l for l in blocks[n])][:3]
               for n in pick: note(f'jdb {base} {n[:30]}'.replace(':', ''), n + '\n' + '\n'.join(blocks[n][:40]))
-          all_lines = lines('logcat.txt')
-          for i, l in enumerate(all_lines):
-              if 'FATAL EXCEPTION' in l:
-                  block = [x for x in all_lines[i:i + 120] if 'AndroidRuntime' in x]
-                  cause = next((j for j, x in enumerate(block) if 'Caused by' in x), 0)
-                  note('crash', ''.join(block[:4] + block[cause:cause + 40])[:3500])
-                  break
           PY
       - name: Stop emulator
         if: always()
