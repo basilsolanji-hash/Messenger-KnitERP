@@ -19,7 +19,7 @@ import ru.kniterp.messenger.R
 import ru.kniterp.messenger.TestSeams
 import ru.kniterp.messenger.tap
 
-/** The real screens against the live API: SMS code from the operator, wrong code, PIN, rotation, process death, logout. */
+/** The real screens against the live API: SMS code from the operator, wrong code, PIN, recreation, process death, logout. */
 @RunWith(AndroidJUnit4::class)
 class LiveLoginUiTest {
     @get:Rule val compose = createEmptyComposeRule()
@@ -69,7 +69,7 @@ class LiveLoginUiTest {
     private fun ready() = shown(R.string.auth_offer_pin)
     private fun origin() = shown(hasText(s(R.string.net_target) + " " + Live.endpoint.canonicalOrigin()))
 
-    @Test fun loginWithOperatorCodePinRotationProcessDeathAndLogout() {
+    @Test fun loginWithOperatorCodePinRecreationProcessDeathAndLogout() {
         launch(); openLogin()
         assertNotEquals("Screens with codes and PINs are not capturable", 0,
             activity.window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE)
@@ -106,11 +106,9 @@ class LiveLoginUiTest {
         type(R.string.auth_new_pin, "482913"); click(R.string.auth_set_pin)
         shown(R.string.auth_pin_saved)
 
-        // Rotation and a second screen keep the same owner and session.
-        scenario!!.onActivity { it.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }
-        scenario!!.onActivity { activity = it }
+        // Recreation (the path a rotation takes; rotation itself is in RotationTest) keeps the owner and session.
+        scenario!!.recreate(); scenario!!.onActivity { activity = it }
         ready()
-        scenario!!.onActivity { it.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }
         assertEquals(device, AuthOwners.get(Live.application).deviceId)
 
         // Process death: a new owner restores from SQLCipher and refreshes with the Keystore-signed challenge.

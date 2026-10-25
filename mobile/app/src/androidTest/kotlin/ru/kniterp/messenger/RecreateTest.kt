@@ -1,6 +1,5 @@
 package ru.kniterp.messenger
 
-import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
 import android.view.inputmethod.InputMethodManager
 import androidx.compose.ui.graphics.asAndroidBitmap
@@ -18,8 +17,8 @@ import ru.kniterp.messenger.core.Wire
 import ru.kniterp.messenger.network.ServerEndpoint
 
 /**
- * Activity recreation and rotation while a text field on the login screen holds focus and the keyboard, then a
- * simulated process death. No server is contacted. The process must survive every destroy.
+ * Activity recreation while a text field on the login screen holds focus and the keyboard, then a simulated
+ * process death. No server is contacted. The process must survive every destroy.
  */
 @RunWith(AndroidJUnit4::class)
 class RecreateTest {
@@ -57,7 +56,7 @@ class RecreateTest {
     }
     private fun phoneField() = hasSetTextAction() and hasText(s(R.string.auth_phone))
 
-    @Test fun loginScreenSurvivesRecreationRotationAndProcessDeath() {
+    @Test fun loginScreenSurvivesRecreationAndProcessDeath() {
         launch(); openLogin()
         val pins = listOf(Wire.base64(ByteArray(32) { 7 }), Wire.base64(ByteArray(32) { 8 })).map { "sha256/$it" }
         val server = hasSetTextAction() and hasText(s(R.string.auth_server))
@@ -71,7 +70,7 @@ class RecreateTest {
         val owner = AuthOwners.get(activity.application)
         val device = owner.deviceId
 
-        repeat(12) { round ->
+        repeat(8) { round ->
             // Scroll and type as one retried step: the list may recompose right after recreation.
             compose.waitUntil(60_000) {
                 runCatching {
@@ -82,12 +81,8 @@ class RecreateTest {
             if (round % 4 == 0) ByteArrayOutputStream().use {
                 check(compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it))
             }
-            when (round % 3) {
-                0 -> scenario!!.recreate()
-                1 -> scenario!!.onActivity { it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }
-                else -> scenario!!.onActivity { it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }
-            }
-            compose.waitForIdle(); refresh()
+            scenario!!.recreate() // Rotation is covered by RotationTest: Compose test idling breaks after it.
+            refresh()
             shown(target)
             assertSame("Recreation must reuse the application owner", owner, AuthOwners.get(activity.application))
             assertEquals(device, owner.deviceId)
