@@ -141,19 +141,25 @@ jobs:
           set -o pipefail
           status=0
           p=-Pandroid.testInstrumentationRunnerArguments
-          # Watchdog: a test running longer than 6 minutes gets its threads dumped (kill -3 only prints stacks).
+          # Watchdog: a test running longer than 6 minutes gets every thread's stack through JDWP (debug build, no
+          # root needed); the app is suspended only for the dump.
+          dump() {
+            pid=$(adb shell pidof ru.kniterp.messenger.dev | tr -d '\r')
+            [ -z "$pid" ] && { echo "no app process" >> "$LOGS/watchdog.txt"; return; }
+            adb forward tcp:8700 "jdwp:$pid" >> "$LOGS/watchdog.txt" 2>&1
+            printf 'suspend\nwhere all\nresume\nquit\n' | timeout 90 jdb -attach localhost:8700 > "$1" 2>&1
+            adb forward --remove tcp:8700 > /dev/null 2>&1
+            echo "dumped $pid to $1 ($(wc -l < "$1") lines)" >> "$LOGS/watchdog.txt"
+          }
           (
             set +e
             last=""; since=0; n=0
             while sleep 30; do
               cur=$(adb logcat -d -s TestRunner:I 2>/dev/null | grep 'started:' | tail -1 | sed 's/.*started: //')
-              if [ "$cur" != "$last" ]; then last=$cur; since=$(date +%s); continue; fi
+              if [ "$cur" != "$last" ]; then last=$cur; since=$(date +%s); echo "$(date +%T) $cur" >> "$LOGS/watchdog.txt"; continue; fi
               if [ -n "$cur" ] && [ $(( $(date +%s) - since )) -ge 360 ] && [ "$n" -lt 2 ]; then
-                pid=$(adb shell pidof ru.kniterp.messenger.dev | tr -d '\r')
-                [ -n "$pid" ] && adb shell kill -3 "$pid"; sleep 5; n=$((n+1))
-                mkdir -p "$LOGS/anr/$n"; echo "$cur" > "$LOGS/anr/$n/test.txt"
-                adb pull /data/anr "$LOGS/anr/$n" > /dev/null 2>&1 || true
-                since=$(date +%s)
+                n=$((n+1)); echo "$(date +%T) stuck: $cur" >> "$LOGS/watchdog.txt"
+                dump "$LOGS/jdb-$n.txt"; since=$(date +%s)
               fi
             done
           ) &
@@ -213,6 +219,19 @@ jobs:
               for title, thread in (('threads-main', '"main"'), ('threads-test', '"Instr: androidx.test.runner.AndroidJUnitRunner"')):
                   at = text.find(thread)
                   if at >= 0: note(title, os.path.relpath(path, logs) + '\n' + '\n'.join(text[at:].splitlines()[:45]))
+          if lines('watchdog.txt'): note('watchdog.txt', ''.join(lines('watchdog.txt')[-25:])[-3500:])
+          for path in sorted(glob.glob(os.path.join(logs, 'jdb-*.txt'))):
+              blocks, name = {}, None
+              for line in open(path, errors='replace'):
+                  if line.strip() and not line.startswith((' ', '\t', '>')) and line.rstrip().endswith(':'):
+                      name = line.strip()[:-1]; blocks[name] = []
+                  elif name is not None and line.strip():
+                      blocks[name].append(line.rstrip())
+              base = os.path.basename(path)
+              if not blocks: note('jdb ' + base, open(path, errors='replace').read()[:3500])
+              pick = [n for n in blocks if n == 'main' or n.startswith('Instr:')]
+              pick += [n for n in blocks if n not in pick and any('ru.kniterp' in l for l in blocks[n])][:3]
+              for n in pick: note(f'jdb {base} {n[:30]}'.replace(':', ''), n + '\n' + '\n'.join(blocks[n][:40]))
           all_lines = lines('logcat.txt')
           for i, l in enumerate(all_lines):
               if 'FATAL EXCEPTION' in l:
