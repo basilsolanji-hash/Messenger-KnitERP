@@ -41,9 +41,14 @@ class LiveLoginUiTest {
         compose.waitUntil(timeout) { compose.onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty() }
     private fun list() = compose.onNode(hasScrollToNodeAction())
     private fun scrollTo(matcher: SemanticsMatcher) = list().performScrollToNode(matcher)
-    private fun click(id: Int) { scrollTo(hasText(s(id))); compose.onNodeWithText(s(id)).performClick() }
+    /** Scroll and click as one retried step: the keyboard can push an item out of the lazy list in between. */
+    private fun click(id: Int) = compose.waitUntil(30_000) {
+        runCatching { scrollTo(hasText(s(id))); compose.onNodeWithText(s(id)).performClick() }.isSuccess
+    }
     private fun field(label: Int) = hasSetTextAction() and hasText(s(label))
-    private fun type(label: Int, text: String) { scrollTo(field(label)); compose.onNode(field(label)).performTextInput(text) }
+    private fun type(label: Int, text: String) = compose.waitUntil(30_000) {
+        runCatching { scrollTo(field(label)); compose.onNode(field(label)).performTextInput(text) }.isSuccess
+    }
     private fun openLogin() {
         compose.onNodeWithText(s(R.string.settings)).performClick()
         click(R.string.auth_title)
