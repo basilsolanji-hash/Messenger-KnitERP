@@ -19,6 +19,9 @@ jobs:
             target: google_apis
           - api-level: 36
             target: google_apis
+    env:
+      IMAGE: system-images;android-${{ matrix.api-level }};${{ matrix.target }};x86_64
+      LOGS: ${{ github.workspace }}/mobile/app/build/outputs/ci-logs
     steps:
       - uses: actions/checkout@v4
       - name: Enable KVM
@@ -34,33 +37,40 @@ jobs:
         with:
           packages: platform-tools
           log-accepted-android-sdk-licenses: false
-      - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0' emulator "$IMAGE"
       - uses: gradle/actions/setup-gradle@v4
       # Build before booting the emulator so its startup time does not count against compilation.
-      - run: ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest
+      - run: mkdir -p "$LOGS" && ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest
         working-directory: mobile
+      # Explicit steps instead of a wrapper action: every boot and test line lands in files that the failure step annotates.
       # Real Keystore, Room/SQLCipher and libsignal JNI on x86_64; no stubbed core.
-      - uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: ${{ matrix.api-level }}
-          target: ${{ matrix.target }}
-          arch: x86_64
-          ram-size: 4096M
-          disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
-          working-directory: mobile
-          script: |
-            adb shell getprop ro.build.version.release
-            adb shell getprop ro.build.version.sdk
-            mkdir -p app/build/outputs/logcat && adb logcat -c
-            ./gradlew :app:connectedDebugAndroidTest || (adb logcat -d -v brief AndroidRuntime:E TestRunner:E System.err:W '*:S' > app/build/outputs/logcat/failure.txt; exit 1)
+      - name: Boot emulator
+        run: |
+          echo no | avdmanager create avd --force -n ci -k "$IMAGE" > "$LOGS/avd.txt" 2>&1
+          nohup "$ANDROID_HOME/emulator/emulator" -avd ci -no-window -gpu swiftshader_indirect -no-snapshot -noaudio \
+            -no-boot-anim -memory 4096 -camera-back none -camera-front none > "$LOGS/emulator.txt" 2>&1 &
+          timeout 120 adb wait-for-device
+          timeout 600 bash -c 'until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = 1 ]; do sleep 5; done'
+          for key in window_animation_scale transition_animation_scale animator_duration_scale; do adb shell settings put global $key 0; done
+          adb shell input keyevent 82 || true
+          echo "Android $(adb shell getprop ro.build.version.release | tr -d '\r'), API $(adb shell getprop ro.build.version.sdk | tr -d '\r')" | tee "$LOGS/device.txt"
+      - name: Instrumentation tests
+        working-directory: mobile
+        run: |
+          adb logcat -c
+          set -o pipefail
+          status=0
+          ./gradlew :app:connectedDebugAndroidTest 2>&1 | tee "$LOGS/gradle.txt" || status=$?
+          adb logcat -d -v brief AndroidRuntime:E TestRunner:E System.err:W '*:S' > "$LOGS/logcat.txt" || true
+          exit $status
       # Logs and artifacts need blob storage; annotations stay readable through the public checks API.
       - name: Annotate failures
         if: failure()
         working-directory: mobile
         run: |
           python3 - <<'PY'
-          import glob, xml.etree.ElementTree as ET
+          import glob, os, xml.etree.ElementTree as ET
+          logs = os.environ['LOGS']
           def note(title, text):
               text = text.replace('%', '%25').replace('\r', '').replace('\n', '%0A')[:3500]
               print(f"::error title={title}::{text}")
@@ -68,11 +78,16 @@ jobs:
               for case in ET.parse(path).getroot().iter('testcase'):
                   for bad in list(case.findall('failure')) + list(case.findall('error')):
                       note(f"{case.get('classname','').split('.')[-1]}.{case.get('name')}", (bad.text or bad.get('message') or '')[:3500])
-          try:
-              lines = [l for l in open('app/build/outputs/logcat/failure.txt', errors='replace') if l.strip()]
-              if lines: note('logcat', ''.join(lines[:60]))
-          except FileNotFoundError: pass
+          for name, keep in [('device.txt', 5), ('avd.txt', 20), ('emulator.txt', 40), ('gradle.txt', 60), ('logcat.txt', 60)]:
+              try:
+                  lines = [l for l in open(os.path.join(logs, name), errors='replace') if l.strip() and 'Seeding context' not in l and 'val in interceptor' not in l]
+              except FileNotFoundError:
+                  continue
+              if lines: note(name, ''.join(lines[-keep:]))
           PY
+      - name: Stop emulator
+        if: always()
+        run: adb emu kill || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -80,5 +95,5 @@ jobs:
           path: |
             mobile/app/build/outputs/androidTest-results/
             mobile/app/build/reports/androidTests/
-            mobile/app/build/outputs/logcat/
+            mobile/app/build/outputs/ci-logs/
           retention-days: 14

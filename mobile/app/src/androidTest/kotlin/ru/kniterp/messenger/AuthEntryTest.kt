@@ -30,7 +30,9 @@ class AuthEntryTest {
         val config = Wire.json.encodeToString(ServerEndpoint("https://example.com", pins))
         compose.onNode(hasSetTextAction() and hasText(context.getString(R.string.auth_server))).performTextInput(config)
         compose.onNodeWithText(context.getString(R.string.auth_server_save)).performClick()
-        compose.waitUntil(60_000) { compose.onAllNodesWithText(context.getString(R.string.auth_get_code)).fetchSemanticsNodes().isNotEmpty() }
+        // The list is lazy: off-screen items are not composed, so wait for the saved origin at the top, then scroll.
+        val target = context.getString(R.string.net_target) + " https://example.com/"
+        compose.waitUntil(60_000) { compose.onAllNodesWithText(target).fetchSemanticsNodes().isNotEmpty() }
         compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(context.getString(R.string.auth_phone)))
         compose.onNode(hasSetTextAction() and hasText(context.getString(R.string.auth_phone))).performTextInput("12345")
         compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(context.getString(R.string.auth_get_code)))
@@ -41,7 +43,7 @@ class AuthEntryTest {
             check(compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it))
         }
         compose.activityRule.scenario.recreate()
-        compose.waitUntil(30_000) { compose.onAllNodesWithText(context.getString(R.string.auth_get_code)).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(30_000) { compose.onAllNodesWithText(context.getString(R.string.settings)).fetchSemanticsNodes().isNotEmpty() }
         // Recreated screens attach to the existing owner. No separate session/refresh controller is constructed.
         assertSame(AuthModel(context.application).state, AuthModel(compose.activity.application).state)
     }
