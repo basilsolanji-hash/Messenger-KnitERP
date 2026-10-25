@@ -48,6 +48,7 @@
     <string name="net_open">Открыть чат</string>
     <string name="net_queued">В очереди на телефоне</string>
     <string name="net_accepted">Принято сервером · прочтение не подтверждено</string>
+    <string name="net_held">Не доставлено: устройство собеседника изменилось. Повторно не отправляется.</string>
     <string name="net_safety">Сравните все 60 цифр на обоих телефонах до обмена личными данными.</string>
     <string name="net_rejected">Часть сообщений не прошла проверку. Подтверждения для них не отправлены.</string>
     <string name="net_identity_changed">Код безопасности или устройство изменились. Отправка остановлена.</string>

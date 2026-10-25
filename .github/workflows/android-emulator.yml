@@ -37,6 +37,13 @@ jobs:
       ANDROID_AVD_HOME: ${{ github.workspace }}/.avd
     steps:
       - uses: actions/checkout@v4
+      # Release sources must not be able to replace the TLS trust root (debug/androidTest only).
+      - name: Release has no trust override
+        run: |
+          f=mobile/app/src/release/kotlin/ru/kniterp/messenger/TestSeams.kt
+          grep -q 'val trust: X509TrustManager? get() = null' "$f"
+          ! grep -Eq '\bvar\b|set\(' "$f"
+          ! grep -rnE 'TestSeams\.trust *=' mobile/app/src/main mobile/app/src/release
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules

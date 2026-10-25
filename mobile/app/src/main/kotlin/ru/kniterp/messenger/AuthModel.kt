@@ -1,6 +1,7 @@
 package ru.kniterp.messenger
 
 import android.app.Application
+import android.content.pm.ApplicationInfo
 import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.AndroidViewModel
 import java.util.UUID
@@ -20,7 +21,9 @@ data class AuthUiState(val loading: Boolean = true, val busy: Boolean = false, v
     val peer: String = "", val messages: List<ChatMessage> = emptyList(), val pendingIds: Set<String> = emptySet(),
     val safetyNumber: String = "", val queuedId: String = "",
     /** Public challenge id: the test-stand operator reads the Fake SMS code by it. Not a secret without the operator key. */
-    val challengeId: String = "")
+    val challengeId: String = "",
+    /** Outgoing messages held after the peer moved to another device: shown as undelivered, never re-sent silently. */
+    val heldIds: Set<String> = emptySet())
 
 /** The screen never owns a session or closes it on rotation/navigation. */
 class AuthModel(application: Application) : AndroidViewModel(application) {
@@ -46,20 +49,24 @@ class AuthModel(application: Application) : AndroidViewModel(application) {
 /** Exactly one controller and UserSession per active profile in this application process. */
 internal object AuthOwners {
     private var instance: AuthController? = null
-    /** Instrumentation only: root of a CI-generated HTTPS front. Hostname and SPKI pins are still enforced. */
-    @VisibleForTesting @Volatile var testTrust: X509TrustManager? = null
     @Synchronized fun get(application: Application): AuthController =
-        instance ?: AuthController(application, trust = testTrust).also { instance = it }
+        instance ?: AuthController(application).also { instance = it }
     /** Instrumentation only: forget the in-memory owner as process death would. Durable state is untouched. */
     @VisibleForTesting @Synchronized fun simulateProcessDeath() { instance?.close(); instance = null }
 }
 
 @Serializable private data class ActivationProfile(val deviceId: String, val server: ServerEndpoint, val prepared: Boolean = false)
 
+/**
+ * A replaced trust root is honoured only by a debuggable build; release builds have no way to set one (see TestSeams).
+ * Pins and hostname verification apply either way.
+ */
+internal fun testTrust(debuggable: Boolean, candidate: X509TrustManager?): X509TrustManager? = candidate.takeIf { debuggable }
+
 /** [registryName] and [wrap] exist for instrumentation: a second synthetic phone and injected transport failures. */
 internal class AuthController(private val application: Application, registryName: String = "auth-registry",
-                              private val trust: X509TrustManager? = null,
                               private val wrap: (MessageApi) -> MessageApi = { it }) {
+    private val trust = testTrust((application.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0, TestSeams.trust)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutable = MutableStateFlow(AuthUiState())
     val state: StateFlow<AuthUiState> = mutable
@@ -205,6 +212,7 @@ internal class AuthController(private val application: Application, registryName
             login = current?.flow?.view() ?: LoginView(), accountId = stored?.session?.accountId.orEmpty(),
             ready = ready, ended = if (stored?.session != null) null else previousEnded,
             challengeId = stored?.pendingLogin?.challenge?.challengeId.orEmpty(),
+            heldIds = current?.delivery?.heldIds().orEmpty(),
             messages = current?.signal?.history().orEmpty(), pendingIds = current?.signal?.pendingIds().orEmpty(),
             safetyNumber = if (ready && peer.isNotEmpty() && current!!.signal.hasPeer(peer)) current.signal.safetyNumber(peer) else "")
     }

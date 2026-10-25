@@ -25,6 +25,7 @@ import org.junit.Assert.*
 import org.junit.Assume.assumeTrue
 import ru.kniterp.messenger.AuthController
 import ru.kniterp.messenger.AuthUiState
+import ru.kniterp.messenger.TestSeams
 import ru.kniterp.messenger.core.*
 import ru.kniterp.messenger.network.Country
 import ru.kniterp.messenger.network.LoginStep
@@ -102,7 +103,8 @@ class FaultyApi(private val real: MessageApi) : MessageApi {
 internal class Phone(val registry: String = "live-${UUID.randomUUID()}") : Closeable {
     @Volatile lateinit var faults: FaultyApi
         private set
-    val controller = AuthController(Live.application, registry, Live.trust) { FaultyApi(it).also { api -> faults = api } }
+    init { TestSeams.trust = Live.trust }
+    val controller = AuthController(Live.application, registry) { FaultyApi(it).also { api -> faults = api } }
     val state: AuthUiState get() = controller.state.value
 
     /** Runs one controller operation to completion; a dropped (busy) call fails the test. */

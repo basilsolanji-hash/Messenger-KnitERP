@@ -48,6 +48,7 @@
     <string name="net_open">Chatni ochish</string>
     <string name="net_queued">Telefondagi navbatda</string>
     <string name="net_accepted">Server qabul qildi · o‘qilgani tasdiqlanmagan</string>
+    <string name="net_held">Yetkazilmadi: suhbatdosh qurilmasi o‘zgardi. Qayta yuborilmaydi.</string>
     <string name="net_safety">Shaxsiy ma’lumotlarni yuborishdan oldin ikkala telefondagi barcha 60 raqamni solishtiring.</string>
     <string name="net_rejected">Ayrim xabarlar tekshiruvdan o‘tmadi. Ular uchun tasdiq yuborilmadi.</string>
     <string name="net_identity_changed">Xavfsizlik kodi yoki qurilma o‘zgardi. Yuborish to‘xtatildi.</string>

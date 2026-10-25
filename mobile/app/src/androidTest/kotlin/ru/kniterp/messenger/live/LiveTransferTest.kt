@@ -53,10 +53,15 @@ class LiveTransferTest {
         assertFalse("С нового телефона 2" in peer.incoming(account))
         val held = peer.send("Старому устройству 3")
         assertEquals(R.string.net_identity_changed, held.error)
-        assertTrue(peer.outgoing("Старому устройству 3").id in held.pendingIds)
+        val heldId = peer.outgoing("Старому устройству 3").id
+        assertTrue(heldId in held.pendingIds)
+        assertEquals(setOf(heldId), held.heldIds) // Shown as undelivered; not re-sent on later syncs.
+        peer.faults.failBefore += "send" // Any send attempt now would fail the next assertion.
+        assertNotEquals(R.string.auth_err_network, peer.sync().error)
+        peer.faults.failBefore.clear()
         moved.sync()
         assertFalse("Старому устройству 3" in moved.incoming(peerId))
-        assertEquals(R.string.net_identity_changed, peer.sync().error) // Still refused on every attempt.
+        assertEquals(R.string.net_identity_changed, peer.sync().error) // Still shown on every sync.
         old.close(); peer.close(); moved.close()
     }
 }

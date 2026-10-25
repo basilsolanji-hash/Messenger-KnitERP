@@ -15,6 +15,7 @@ import org.junit.runner.RunWith
 import ru.kniterp.messenger.AuthOwners
 import ru.kniterp.messenger.MainActivity
 import ru.kniterp.messenger.R
+import ru.kniterp.messenger.TestSeams
 
 /** The real screens against the live API: SMS code from the operator, wrong code, PIN, rotation, process death, logout. */
 @RunWith(AndroidJUnit4::class)
@@ -26,9 +27,9 @@ class LiveLoginUiTest {
     @Before fun live() {
         Live.assumeConfigured()
         AuthOwners.simulateProcessDeath()
-        AuthOwners.testTrust = Live.trust
+        TestSeams.trust = Live.trust
     }
-    @After fun stop() { scenario?.close(); AuthOwners.simulateProcessDeath(); AuthOwners.testTrust = null }
+    @After fun stop() { scenario?.close(); AuthOwners.simulateProcessDeath(); TestSeams.trust = null }
 
     private fun launch() {
         scenario?.close()

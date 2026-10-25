@@ -48,6 +48,7 @@
     <string name="net_open">Чатты ашу</string>
     <string name="net_queued">Телефондағы кезекте</string>
     <string name="net_accepted">Сервер қабылдады · оқылғаны расталмаған</string>
+    <string name="net_held">Жеткізілмеді: әңгімелесушінің құрылғысы өзгерді. Қайта жіберілмейді.</string>
     <string name="net_safety">Жеке деректерді жібермес бұрын екі телефондағы барлық 60 цифрды салыстырыңыз.</string>
     <string name="net_rejected">Кейбір хабарлар тексеруден өтпеді. Олар үшін растау жіберілмеді.</string>
     <string name="net_identity_changed">Қауіпсіздік коды немесе құрылғы өзгерді. Жіберу тоқтатылды.</string>

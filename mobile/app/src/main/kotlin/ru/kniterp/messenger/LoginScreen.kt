@@ -168,7 +168,11 @@ import ru.kniterp.messenger.core.SignalClient
                             shape = MaterialTheme.shapes.medium) {
                             Column(Modifier.fillMaxWidth().padding(14.dp)) {
                                 Text(message.text)
-                                if (message.outgoing) Text(stringResource(if (message.id in state.pendingIds) R.string.net_queued else R.string.net_accepted),
+                                if (message.outgoing) Text(stringResource(when (message.id) {
+                                    in state.heldIds -> R.string.net_held
+                                    in state.pendingIds -> R.string.net_queued
+                                    else -> R.string.net_accepted
+                                }),
                                     style = MaterialTheme.typography.labelSmall)
                             }
                         }

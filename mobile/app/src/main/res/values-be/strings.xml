@@ -48,6 +48,7 @@
     <string name="net_open">Адкрыць чат</string>
     <string name="net_queued">У чарзе на тэлефоне</string>
     <string name="net_accepted">Прынята серверам · прачытанне не пацверджана</string>
+    <string name="net_held">Не дастаўлена: прылада суразмоўцы змянілася. Паўторна не адпраўляецца.</string>
     <string name="net_safety">Параўнайце ўсе 60 лічбаў на абодвух тэлефонах перад абменам асабістымі данымі.</string>
     <string name="net_rejected">Частка паведамленняў не прайшла праверку. Пацвярджэнні для іх не адпраўлены.</string>
     <string name="net_identity_changed">Код бяспекі ці прылада змяніліся. Адпраўка спынена.</string>

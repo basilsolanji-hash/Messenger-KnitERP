@@ -19,16 +19,19 @@ interface MessageApi {
     fun inbox(cursor: String?): InboxPage
     fun ack(request: AckRequest)
 }
-/** [heldIds]: outgoing messages the server refused for now (see [Delivery]); they stay pending with the same ciphertext. */
+/** [heldIds]: outgoing messages held after a refusal (see [Delivery]); they stay pending with the same ciphertext. */
 data class DeliveryReport(val accepted: Int, val received: Int, val rejectedSequences: List<Long>,
                           val heldIds: List<String> = emptyList())
 
 /** Network calls never hold a database transaction. A cursor is NOT persisted:
  * unacknowledged messages must be retried after a crash. Each instance is serialized.
  */
+private const val HELD = "delivery-held"
+
 class Delivery(private val vault: Vault, private val api: MessageApi,
-               /** True for a send refusal that a retry now cannot fix (the recipient moved to another device).
-                * Such a message is held instead of aborting, so the inbox and other outgoing messages still flow. */
+               /** True for a send refusal that a retry cannot fix (the recipient moved to another device). Such a
+                * message is held durably and not sent again; the inbox and other outgoing messages still flow.
+                * Re-encrypting it for a confirmed new device is not implemented. */
                private val held: (Exception) -> Boolean = { false }) {
     val signal = SignalClient(vault)
     @Synchronized fun establish(peer: String) {
@@ -44,13 +47,18 @@ class Delivery(private val vault: Vault, private val api: MessageApi,
         establish(peer)
         return signal.prepare(peer, text, id)
     }
+    /** Outgoing messages held after a refusal; they are never resent automatically. */
+    fun heldIds(): Set<String> = vault.transaction { it.keys(HELD).toSet() }
+
     @Synchronized fun synchronize(maxPages: Int = 10, maxOutgoing: Int = 100): DeliveryReport {
         require(maxPages in 1..100 && maxOutgoing in 1..100)
         var accepted = 0
-        val heldIds = mutableListOf<String>()
-        for (message in signal.pending(maxOutgoing)) {
+        val parked = heldIds()
+        val heldIds = signal.pendingIds().filter { it in parked }.toMutableList()
+        for (message in signal.pending().filterNot { it.clientMessageId in parked }.take(maxOutgoing)) {
             val response = try { api.send(message) } catch (failure: Exception) {
                 if (!held(failure)) throw failure
+                vault.transaction { it.put(HELD, message.clientMessageId, byteArrayOf(1)) }
                 heldIds += message.clientMessageId
                 continue
             }

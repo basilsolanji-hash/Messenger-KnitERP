@@ -75,11 +75,19 @@ class DeliveryTest {
         assertEquals(1, report.received)
         assertEquals("incoming still flows", a.client.history().single { !it.outgoing }.text)
         assertEquals(original, a.client.pending().single())
-        // Without the classifier the same refusal still aborts, as before.
-        assertFailsWith<IllegalStateException> { Delivery(a.vault, server.api(a)).synchronize() }
+        // Held durably: no further send attempts, even after a restart or for a Delivery without the classifier.
+        val attempts = server.sent.size
+        assertEquals(listOf(original.clientMessageId), Delivery(a.vault, server.api(a)).synchronize().heldIds)
+        assertEquals(attempts, server.sent.size)
+        // A later message still goes out; the held one stays held and is not re-sent.
         server.recipientMoved = false
-        assertEquals(1, sender.synchronize().accepted)
-        assertEquals(original, server.sent.last())
+        val later = sender.queue(b.device.accountId, "later")
+        val next = sender.synchronize()
+        assertEquals(1, next.accepted)
+        assertEquals(listOf(original.clientMessageId), next.heldIds)
+        assertEquals(later, server.sent.last())
+        assertEquals(attempts + 1, server.sent.size)
+        assertEquals(setOf(original.clientMessageId), a.client.pendingIds())
     }
     @Test fun lostAckRedeliversCommittedMessageWithoutSecondHistoryEntry() {
         val a = participant(); val b = participant(); val server = Server(a, b)
