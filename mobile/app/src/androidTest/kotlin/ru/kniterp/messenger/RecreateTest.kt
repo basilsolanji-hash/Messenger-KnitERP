@@ -61,8 +61,13 @@ class RecreateTest {
         val device = owner.deviceId
 
         repeat(12) { round ->
-            shown(phoneField())
-            compose.onNode(phoneField()).performTextReplacement("90012345$round") // Focus and keyboard are active.
+            // Scroll and type as one retried step: the list may recompose right after recreation.
+            compose.waitUntil(60_000) {
+                runCatching {
+                    compose.onNode(hasScrollToNodeAction()).performScrollToNode(phoneField())
+                    compose.onNode(phoneField()).performTextReplacement("90012345$round") // Focus and keyboard active.
+                }.isSuccess
+            }
             if (round % 4 == 0) ByteArrayOutputStream().use {
                 check(compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it))
             }
@@ -84,7 +89,11 @@ class RecreateTest {
         shown(target)
         assertNotSame(owner, AuthOwners.get(activity.application))
         assertEquals(device, AuthOwners.get(activity.application).deviceId)
-        shown(phoneField())
-        compose.onNode(phoneField()).assert(!hasText("90012345", substring = true)) // The typed number was not saved.
+        compose.waitUntil(60_000) {
+            runCatching {
+                compose.onNode(hasScrollToNodeAction()).performScrollToNode(phoneField())
+                compose.onNode(phoneField()).assert(!hasText("90012345", substring = true)) // The typed number was not saved.
+            }.isSuccess
+        }
     }
 }
