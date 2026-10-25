@@ -29,7 +29,10 @@ class NetworkSetupTest {
         }
         compose.onNode(hasSetTextAction() and hasText("Тестовое имя")).performTextInput("Synthetic Android 26")
         compose.onNodeWithText("Создать публичный запрос").performClick()
-        compose.waitUntil(30_000) { compose.onAllNodes(hasText("\"identityKey\"", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        // The request appears below the button in a lazy list; with the keyboard open it may not be composed yet.
+        compose.waitUntil(30_000) {
+            runCatching { compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("\"identityKey\"", substring = true)) }.isSuccess
+        }
         val json = compose.onNode(hasText("\"identityKey\"", substring = true)).fetchSemanticsNode()
             .config[androidx.compose.ui.semantics.SemanticsProperties.Text].joinToString("") { it.text }
         val request = Wire.json.decodeFromString<EnrollmentRequest>(json)

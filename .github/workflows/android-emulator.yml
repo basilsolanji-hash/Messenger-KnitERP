@@ -166,6 +166,13 @@ jobs:
           # Exception and "failed:" lines from the test runner, without stack frames.
           crash = [l for l in lines('logcat.txt') if '\tat ' not in l and '... ' not in l]
           if crash: note('logcat.txt', ''.join(crash[:40])[:3500])
+          all_lines = lines('logcat.txt')
+          for i, l in enumerate(all_lines):
+              if 'FATAL EXCEPTION' in l:
+                  block = [x for x in all_lines[i:i + 120] if 'AndroidRuntime' in x]
+                  cause = next((j for j, x in enumerate(block) if 'Caused by' in x), 0)
+                  note('crash', ''.join(block[:4] + block[cause:cause + 40])[:3500])
+                  break
           PY
       - name: Stop emulator
         if: always()
