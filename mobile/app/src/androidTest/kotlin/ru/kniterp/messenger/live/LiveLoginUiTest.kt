@@ -1,6 +1,7 @@
 package ru.kniterp.messenger.live
 
 import android.view.WindowManager
+import android.view.inputmethod.InputMethodManager
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
@@ -43,7 +44,12 @@ class LiveLoginUiTest {
     private fun list() = compose.onNode(hasScrollToNodeAction())
     private fun scrollTo(matcher: SemanticsMatcher) = list().performScrollToNode(matcher)
     /** Scroll and click as one retried step: the keyboard can push an item out of the lazy list in between. */
+    /** On Android 8 a just-opened keyboard covers the button and takes the click, so close it first. */
+    private fun hideKeyboard() = scenario!!.onActivity {
+        it.getSystemService(InputMethodManager::class.java).hideSoftInputFromWindow(it.window.decorView.windowToken, 0)
+    }
     private fun click(id: Int) = compose.waitUntil(30_000) {
+        hideKeyboard()
         runCatching { scrollTo(hasText(s(id))); compose.onNodeWithText(s(id)).performClick() }.isSuccess
     }
     private fun field(label: Int) = hasSetTextAction() and hasText(s(label))
