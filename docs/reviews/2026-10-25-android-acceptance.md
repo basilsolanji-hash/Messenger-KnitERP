@@ -125,6 +125,12 @@ Workflow `Android emulator instrumentation` на `e1145f5` ([run 40193169280](ht
 
 «Живой API в CI» — это настоящий сервер этой ревизии с PostgreSQL за HTTPS с проверкой CA, hostname и SPKI pins. Но CA создаётся в CI, а адрес — loopback. Это **не** проверка публичного сертификата, Nginx, списка IP и сети VPS.
 
+Последняя ревизия PR c46b24d ([run 40198583736](https://github.com/basilsolanji-hash/Messenger-KnitERP/actions/runs/40198583736)):
+
+- **API 26:** все 10 наборов зелёные.
+- **API 36:** job снят по таймауту в 75 минут, шаг instrumentation завис. Аннотаций при отмене нет, причина не установлена. Поэтому пункт 1 **не закрыт**: зелёный API 36 есть только на c15a865.
+- **JVM:** зелёный, [run 40198583741](https://github.com/basilsolanji-hash/Messenger-KnitERP/actions/runs/40198583741).
+
 Нестабильность: на одном прогоне API 36 ([run 40195670071](https://github.com/basilsolanji-hash/Messenger-KnitERP/actions/runs/40195670071)) процесс приложения упал при уничтожении активности в `AuthEntryTest` после `recreate()`:
 
 ```
