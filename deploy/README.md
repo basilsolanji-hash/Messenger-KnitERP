@@ -11,6 +11,8 @@
 5. HTTPS unit запускает отдельный foreground Nginx с единственной capability для порта 443. Он не управляет общим nginx.service и не поддерживает общий reload. Проверить отсутствие конфликта 443, закрытый firewall, сертификат/цепочку, API peer после Docker NAT и точный `Auth:TrustedProxies`.
 6. После проверки путей/прав выполнить `systemd-analyze verify` на установленных unit, затем `systemctl daemon-reload`. Запускать сначала `os-communications-compose.service`, проверить `/health/ready` с разрешённым Host через loopback, затем выделенный HTTPS unit. `compose up --wait` без API healthcheck подтверждает запуск контейнера, а не готовность API/миграций. Только после ручной приёмки включить unit на автозапуск.
 
+Оставшиеся шаги закрытого стенда (allowlist, внешние проверки, лимит SMS, backup/restore, отзыв сессий) собраны скриптами в `deploy/closed-stand/README.md`. Фактическая установка на VPS 25.10.2026 записана в `docs/reviews/2026-10-25-closed-stand.md`. `init-dev.py` не задаёт `AllowedHosts` и `Auth__TrustedProxies__0`; их добавляют в `.env` отдельно, не выводя файл. Peer Nginx, видимый API за `docker-proxy`, — gateway compose-сети (на стенде `172.18.0.1`), а не `127.0.0.1`.
+
 Нельзя применять `docker compose down -v`, prune volumes или пересоздавать `.env` ради ошибки запуска. Публичны только разрешённые HTTPS/SSH, база и API остаются закрыты. Шаблоны здесь прошли только offline syntax verification с заменой отсутствующих локальных бинарников/внешних unit; запуск и boot/restart на VPS не проверены.
 
 ## Release-артефакт
