@@ -125,11 +125,13 @@ Workflow `Android emulator instrumentation` на `e1145f5` ([run 40193169280](ht
 
 «Живой API в CI» — это настоящий сервер этой ревизии с PostgreSQL за HTTPS с проверкой CA, hostname и SPKI pins. Но CA создаётся в CI, а адрес — loopback. Это **не** проверка публичного сертификата, Nginx, списка IP и сети VPS.
 
-Последняя ревизия PR c46b24d ([run 40198583736](https://github.com/basilsolanji-hash/Messenger-KnitERP/actions/runs/40198583736)):
+На ревизии c46b24d два прогона дали разный результат:
 
-- **API 26:** все 10 наборов зелёные.
-- **API 36:** job снят по таймауту в 75 минут, шаг instrumentation завис. Аннотаций при отмене нет, причина не установлена. Поэтому пункт 1 **не закрыт**: зелёный API 36 есть только на c15a865.
-- **JVM:** зелёный, [run 40198583741](https://github.com/basilsolanji-hash/Messenger-KnitERP/actions/runs/40198583741).
+- push-прогон [40198557998](https://github.com/basilsolanji-hash/Messenger-KnitERP/actions/runs/40198557998): API 26 и API 36 зелёные;
+- PR-прогон [40198583736](https://github.com/basilsolanji-hash/Messenger-KnitERP/actions/runs/40198583736): API 26 зелёный, а API 36 завис в шаге instrumentation и был снят по таймауту job (75 минут). Аннотаций при отмене не было;
+- JVM: зелёный, [run 40198583741](https://github.com/basilsolanji-hash/Messenger-KnitERP/actions/runs/40198583741).
+
+Итог для API 36 на c46b24d: один зелёный прогон и одно зависание, то есть **нестабильно**. Пункт 1 не закрыт, пока нет двух зелёных прогонов подряд на одном коммите.
 
 Нестабильность: на одном прогоне API 36 ([run 40195670071](https://github.com/basilsolanji-hash/Messenger-KnitERP/actions/runs/40195670071)) процесс приложения упал при уничтожении активности в `AuthEntryTest` после `recreate()`:
 
