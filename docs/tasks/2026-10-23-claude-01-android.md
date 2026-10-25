@@ -1,3 +1,5 @@
+> Устарело 25 октября 2026 года: заменено заданием [2026-10-25-02-android-acceptance.md](2026-10-25-02-android-acceptance.md).
+
 # Claude 1 — Android: приёмка пользовательского входа и чата
 
 Репозиторий basilsolanji-hash/Messenger-KnitERP. Продукт «Ось коммуникации».
