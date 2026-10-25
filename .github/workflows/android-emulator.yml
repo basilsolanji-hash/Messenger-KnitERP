@@ -52,7 +52,27 @@ jobs:
           script: |
             adb shell getprop ro.build.version.release
             adb shell getprop ro.build.version.sdk
-            ./gradlew :app:connectedDebugAndroidTest
+            mkdir -p app/build/outputs/logcat && adb logcat -c
+            ./gradlew :app:connectedDebugAndroidTest || (adb logcat -d -v brief AndroidRuntime:E TestRunner:E System.err:W '*:S' > app/build/outputs/logcat/failure.txt; exit 1)
+      # Logs and artifacts need blob storage; annotations stay readable through the public checks API.
+      - name: Annotate failures
+        if: failure()
+        working-directory: mobile
+        run: |
+          python3 - <<'PY'
+          import glob, xml.etree.ElementTree as ET
+          def note(title, text):
+              text = text.replace('%', '%25').replace('\r', '').replace('\n', '%0A')[:3500]
+              print(f"::error title={title}::{text}")
+          for path in glob.glob('app/build/outputs/androidTest-results/**/*.xml', recursive=True):
+              for case in ET.parse(path).getroot().iter('testcase'):
+                  for bad in list(case.findall('failure')) + list(case.findall('error')):
+                      note(f"{case.get('classname','').split('.')[-1]}.{case.get('name')}", (bad.text or bad.get('message') or '')[:3500])
+          try:
+              lines = [l for l in open('app/build/outputs/logcat/failure.txt', errors='replace') if l.strip()]
+              if lines: note('logcat', ''.join(lines[:60]))
+          except FileNotFoundError: pass
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -60,4 +80,5 @@ jobs:
           path: |
             mobile/app/build/outputs/androidTest-results/
             mobile/app/build/reports/androidTests/
+            mobile/app/build/outputs/logcat/
           retention-days: 14
