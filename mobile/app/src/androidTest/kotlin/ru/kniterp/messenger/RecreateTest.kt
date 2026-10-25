@@ -1,13 +1,10 @@
 package ru.kniterp.messenger
 
-import android.graphics.Bitmap
 import android.view.inputmethod.InputMethodManager
-import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import java.io.ByteArrayOutputStream
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Rule
@@ -77,9 +74,6 @@ class RecreateTest {
                     compose.onNode(hasScrollToNodeAction()).performScrollToNode(phoneField())
                     compose.onNode(phoneField()).performTextReplacement("90012345$round") // Focus and keyboard active.
                 }.isSuccess
-            }
-            if (round % 4 == 0) ByteArrayOutputStream().use {
-                check(compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it))
             }
             scenario!!.recreate() // Rotation is covered by RotationTest: Compose test idling breaks after it.
             refresh()

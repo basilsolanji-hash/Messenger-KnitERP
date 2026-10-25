@@ -48,11 +48,12 @@ class AuthEntryTest {
         compose.onNodeWithText(context.getString(R.string.auth_get_code)).tap()
         compose.waitUntil(20_000) { compose.onAllNodesWithText(context.getString(R.string.auth_err_phone)).fetchSemanticsNodes().isNotEmpty() }
         compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(context.getString(R.string.auth_country_uz)))
+        compose.activityRule.scenario.recreate()
+        compose.waitUntil(30_000) { compose.onAllNodesWithText(context.getString(R.string.settings)).fetchSemanticsNodes().isNotEmpty() }
+        // Captured after, not right before, recreate(): see CaptureRecreateExperimentTest.
         File(context.cacheDir, "os-auth-entry.png").outputStream().use {
             check(compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it))
         }
-        compose.activityRule.scenario.recreate()
-        compose.waitUntil(30_000) { compose.onAllNodesWithText(context.getString(R.string.settings)).fetchSemanticsNodes().isNotEmpty() }
         // Recreated screens attach to the existing owner. No separate session/refresh controller is constructed.
         assertSame(AuthModel(context.application).state, AuthModel(compose.activity.application).state)
     }
