@@ -24,6 +24,7 @@
 - [x] **Находка (документация):** `runuser -u os-closed-https -- nginx -t …` из `docs/CLOSED_HTTPS.md` даёт `syntax is ok`, но `bind() to 0.0.0.0:443 failed (13: Permission denied)` → `test failed`, потому что `nginx -t` открывает listen-сокеты. Корректная проверка — с той же capability, что у unit: `systemd-run --wait --pipe -p User=os-closed-https -p AmbientCapabilities=CAP_NET_BIND_SERVICE -p CapabilityBoundingSet=CAP_NET_BIND_SERVICE -p NoNewPrivileges=yes nginx -t …` → `syntax is ok`, `test is successful`. Документ нужно исправить.
 - [x] Firewall: `ufw allow 22/tcp`, `ufw allow 443/tcp`, default deny incoming / allow outgoing / deny routed, `ufw --force enable` → `Status: active`, разрешены только 22 и 443 (v4/v6).
 - [x] HTTPS unit: установлен из шаблона, `systemd-analyze verify` без ошибок, запущен → `active / disabled`; `ss`: `0.0.0.0:443` nginx, `127.0.0.1:5080` docker-proxy. С самого сервера (IP вне allowlist) `https://chat.kniterp.online/health/ready` → `403`.
+- [x] Снаружи (телефон пользователя, Chrome, Wi‑Fi с IP из allowlist, VPN выключен): `https://chat.kniterp.online/health/ready` → `{"status":"ready"}` без предупреждения о сертификате — цепочка Let's Encrypt принята браузером телефона (версия Android этого телефона не зафиксирована). С включённым на телефоне VPN страница не загрузилась (IP VPN вне allowlist) — ожидаемо.
 - [ ] Шаг 5 (отрицательная проверка XFF и лимита), 6 (HTTPS, firewall), 7–10: ждут домена и выполнения.
 
 ## Выполнено на VPS после инвентаризации (выводы пользователя 25.10)
