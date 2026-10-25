@@ -22,6 +22,7 @@ jobs:
     env:
       IMAGE: system-images;android-${{ matrix.api-level }};${{ matrix.target }};x86_64
       LOGS: ${{ github.workspace }}/mobile/app/build/outputs/ci-logs
+      ANDROID_AVD_HOME: ${{ github.workspace }}/.avd
     steps:
       - uses: actions/checkout@v4
       - name: Enable KVM
@@ -46,7 +47,9 @@ jobs:
       # Real Keystore, Room/SQLCipher and libsignal JNI on x86_64; no stubbed core.
       - name: Boot emulator
         run: |
+          mkdir -p "$ANDROID_AVD_HOME"
           echo no | avdmanager create avd --force -n ci -k "$IMAGE" > "$LOGS/avd.txt" 2>&1
+          "$ANDROID_HOME/emulator/emulator" -list-avds >> "$LOGS/avd.txt" 2>&1
           nohup "$ANDROID_HOME/emulator/emulator" -avd ci -no-window -gpu swiftshader_indirect -no-snapshot -noaudio \
             -no-boot-anim -memory 4096 -camera-back none -camera-front none > "$LOGS/emulator.txt" 2>&1 &
           timeout 120 adb wait-for-device
