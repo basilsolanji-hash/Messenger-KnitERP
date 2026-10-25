@@ -134,15 +134,35 @@ jobs:
       - name: Instrumentation tests
         working-directory: mobile
         run: |
+          # Root first (it restarts adbd, which would drop the reverse mapping): needed to pull thread dumps.
+          adb root > /dev/null 2>&1 || true; sleep 3; adb wait-for-device
           adb logcat -c || echo "logcat -c failed" > "$LOGS/logcat-clear.txt"
           adb reverse tcp:8443 tcp:8443
           set -o pipefail
           status=0
           p=-Pandroid.testInstrumentationRunnerArguments
-          # A hang must fail fast with evidence: 9 min per test (the longest live test waits ~5.5 min), 30 min in all.
-          timeout --signal=INT 30m ./gradlew :app:connectedDebugAndroidTest "$p.timeout_msec=540000" \
+          # Watchdog: a test running longer than 6 minutes gets its threads dumped (kill -3 only prints stacks).
+          (
+            set +e
+            last=""; since=0; n=0
+            while sleep 30; do
+              cur=$(adb logcat -d -s TestRunner:I 2>/dev/null | grep 'started:' | tail -1 | sed 's/.*started: //')
+              if [ "$cur" != "$last" ]; then last=$cur; since=$(date +%s); continue; fi
+              if [ -n "$cur" ] && [ $(( $(date +%s) - since )) -ge 360 ] && [ "$n" -lt 2 ]; then
+                pid=$(adb shell pidof ru.kniterp.messenger.dev | tr -d '\r')
+                [ -n "$pid" ] && adb shell kill -3 "$pid"; sleep 5; n=$((n+1))
+                mkdir -p "$LOGS/anr/$n"; echo "$cur" > "$LOGS/anr/$n/test.txt"
+                adb pull /data/anr "$LOGS/anr/$n" > /dev/null 2>&1 || true
+                since=$(date +%s)
+              fi
+            done
+          ) &
+          watchdog=$!
+          # A hang must fail fast with evidence: 7 min per test (the longest live test waits ~5.5 min), 30 min in all.
+          timeout --signal=INT 30m ./gradlew :app:connectedDebugAndroidTest "$p.timeout_msec=420000" \
             "$p.liveRequired=true" "$p.liveOrigin=$LIVE_ORIGIN" "$p.livePins=$LIVE_PINS" \
             "$p.liveCa=$LIVE_CA" "$p.liveOperatorKey=$LIVE_KEY" 2>&1 | tee "$LOGS/gradle.txt" || status=$?
+          kill "$watchdog" 2>/dev/null || true
           if [ "$status" != 0 ]; then
             # Thread dump of the app process (if still alive) to show where it waits.
             pid=$(adb shell pidof ru.kniterp.messenger.dev | tr -d '\r' || true)
@@ -189,9 +209,10 @@ jobs:
           for path in glob.glob(os.path.join(logs, 'anr', '**', '*'), recursive=True):
               if not os.path.isfile(path): continue
               text = open(path, errors='replace').read()
+              if path.endswith('test.txt'): continue
               for title, thread in (('threads-main', '"main"'), ('threads-test', '"Instr: androidx.test.runner.AndroidJUnitRunner"')):
                   at = text.find(thread)
-                  if at >= 0: note(title, '\n'.join(text[at:].splitlines()[:45]))
+                  if at >= 0: note(title, os.path.relpath(path, logs) + '\n' + '\n'.join(text[at:].splitlines()[:45]))
           all_lines = lines('logcat.txt')
           for i, l in enumerate(all_lines):
               if 'FATAL EXCEPTION' in l:
