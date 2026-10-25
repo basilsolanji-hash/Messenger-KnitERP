@@ -159,6 +159,7 @@ jobs:
               if [ "$cur" != "$last" ]; then last=$cur; since=$(date +%s); echo "$(date +%T) $cur" >> "$LOGS/watchdog.txt"; continue; fi
               if [ -n "$cur" ] && [ $(( $(date +%s) - since )) -ge 360 ] && [ "$n" -lt 2 ]; then
                 n=$((n+1)); echo "$(date +%T) stuck: $cur" >> "$LOGS/watchdog.txt"
+                adb shell dumpsys window | grep -E 'mCurrentFocus|mFocusedApp|mRotation=|mDisplayFrozen|mWindowsFreezing|mInputMethodWindow|mLastOrientation|mScreenOn|mAwake' >> "$LOGS/watchdog.txt" 2>&1
                 dump "$LOGS/jdb-$n.txt"; since=$(date +%s)
               fi
             done
@@ -210,8 +211,10 @@ jobs:
           crash = [l for l in lines('logcat.txt') if '\tat ' not in l and '... ' not in l]
           if crash: note('logcat.txt', ''.join(crash[:40])[:3500])
           # Which test was running last, and where the app's threads wait (after kill -3).
-          runner = [l for l in lines('runner.txt') if 'started:' in l or 'finished:' in l or 'failed:' in l or 'waiting for idle' in l]
+          runner = [l for l in lines('runner.txt') if ('started:' in l or 'finished:' in l or 'failed:' in l) and 'RecreateDiag' not in l]
           if runner: note('runner.txt', ''.join(runner[-12:])[-3500:])
+          diag = [l for l in lines('runner.txt') if 'probe:' in l or 'stuck' in l]
+          if diag: note('probes', ''.join(diag[-30:])[-3500:])
           for path in glob.glob(os.path.join(logs, 'anr', '**', '*'), recursive=True):
               if not os.path.isfile(path): continue
               text = open(path, errors='replace').read()

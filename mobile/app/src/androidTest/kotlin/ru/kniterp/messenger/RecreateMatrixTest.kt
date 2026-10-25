@@ -1,7 +1,14 @@
 package ru.kniterp.messenger
 
 import android.content.pm.ActivityInfo
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
+import android.view.Choreographer
+import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
+import androidx.test.runner.lifecycle.Stage
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.atomic.AtomicReference
 import android.view.WindowManager
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
@@ -31,6 +38,22 @@ class RecreateMatrixTest {
     private fun s(id: Int) = activity.getString(id)
     private fun log(message: String) = Log.i("RecreateDiag", message)
 
+    /** Outside Espresso: does the app still get frames, and which activity is resumed and focused? */
+    private fun probe(name: String) {
+        val frame = CountDownLatch(1)
+        val state = AtomicReference("main thread did not answer")
+        Handler(Looper.getMainLooper()).post {
+            Choreographer.getInstance().postFrameCallback { frame.countDown() }
+            val resumed = ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED)
+            state.set(resumed.joinToString { a ->
+                "${a.javaClass.simpleName}@${System.identityHashCode(a)} shown=${a.window.decorView.isShown} " +
+                    "focus=${a.hasWindowFocus()} orientation=${a.resources.configuration.orientation}"
+            }.ifEmpty { "no resumed activity" })
+        }
+        val gotFrame = frame.await(5, TimeUnit.SECONDS)
+        log("$name probe: frame=$gotFrame resumed=[${state.get()}]")
+    }
+
     private fun openLogin() {
         scenario = ActivityScenario.launch(MainActivity::class.java).also { it.onActivity { a -> activity = a } }
         compose.waitUntil(60_000) {
@@ -55,6 +78,8 @@ class RecreateMatrixTest {
                     else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
             } else scenario!!.recreate()
             if (!secure) scenario!!.onActivity { it.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }
+            Thread.sleep(2_000)
+            probe("$name round $round")
             log("$name round $round waiting for idle")
             compose.waitForIdle()
             compose.waitUntil(30_000) { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty() }
