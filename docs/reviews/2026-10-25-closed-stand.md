@@ -14,6 +14,8 @@
 - [x] Шаг 3 (частично): checkout `/opt/os-communications` @ `e1145f5b…`, `.env` через `init-dev.py` с правами `600 root`, игнорируется git. `AllowedHosts` ещё не задан — ждёт домена.
 - [x] Шаг 6 (частично): compose unit установлен, `systemd-analyze verify` OK, запущен (не включён в автозапуск); `/health/ready` через loopback = ready; слушает только `127.0.0.1:5080`.
 - [x] Шаг 5 (измерение): фактический peer, видимый API, = `::ffff:172.18.0.1` = gateway compose-сети `172.18.0.1`. В `.env` ещё не внесён.
+- [x] SSH-ключ ed25519 создан на компьютере пользователя (Windows, с passphrase), публичная часть добавлена в `authorized_keys`; `ssh -i … -o PasswordAuthentication=no … "echo KEY_OK"` → `KEY_OK`. Вход по паролю ещё **не** отключён.
+- [ ] DNS: выбран `chat.kniterp.online` (DNS у Beget: ns1/ns2.beget.com/.pro). Поддомен создан в панели, но A-записи ещё нет: `Resolve-DnsName chat.kniterp.online -Type A` → NXDOMAIN.
 - [ ] Шаги 4, 5 (настройка и отрицательная проверка XFF), 6 (HTTPS, firewall), 7–10: ждут домена и выполнения.
 
 ## Выполнено на VPS после инвентаризации (выводы пользователя 25.10)
