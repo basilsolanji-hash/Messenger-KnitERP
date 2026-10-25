@@ -52,6 +52,28 @@ class PinnedApiTest {
         PinnedApi.connect(config).use { assertFailsWith<SSLException> { it.me() } }
         assertEquals(0, server.requestCount)
     }
+    /** The instrumentation trust seam replaces roots only: pins and hostname verification still decide. */
+    @Test fun testTrustAnchorKeepsPinsAndHostnameChecks() {
+        val root = HeldCertificate.Builder().certificateAuthority(0).build()
+        val leaf = HeldCertificate.Builder().addSubjectAlternativeName("localhost").signedBy(root).build()
+        val trust = HandshakeCertificates.Builder().addTrustedCertificate(root.certificate).build().trustManager
+        val tokens = object : AccessTokens { override fun current() = token; override fun rejected(token: String) = false }
+        MockWebServer().use { server ->
+            server.useHttps(HandshakeCertificates.Builder().heldCertificate(leaf, root.certificate).build().sslSocketFactory())
+            server.start()
+            val backup = CertificatePinner.pin(HeldCertificate.Builder().build().certificate)
+            val good = ServerEndpoint(server.url("/").newBuilder().host("localhost").build().toString(), listOf(CertificatePinner.pin(leaf.certificate), backup))
+            val me = identity(); server.enqueue(MockResponse.Builder().code(200).body(Wire.json.encodeToString(me)).build())
+            PinnedApi.session(good, tokens, trust).use { assertEquals(me, it.me()) }
+            val unpinned = good.copy(pins = listOf(CertificatePinner.pin(HeldCertificate.Builder().build().certificate), backup))
+            PinnedApi.session(unpinned, tokens, trust).use { assertFailsWith<SSLException> { it.me() } }
+            AuthApi.connect(unpinned, trust).use { assertFailsWith<SSLException> { it.refreshChallenge(UUID.randomUUID().toString()) } }
+            val otherHost = good.copy(origin = server.url("/").newBuilder().host("127.0.0.1").build().toString())
+            PinnedApi.session(otherHost, tokens, trust).use { assertFailsWith<SSLException> { it.me() } }
+            PinnedApi.session(good, tokens).use { assertFailsWith<SSLException> { it.me() } } // No seam: platform roots.
+            assertEquals(1, server.requestCount)
+        }
+    }
     @Test fun redirectsCannotSendTokenToAnotherOrigin() = fixture { server, config, base ->
         MockWebServer().use { destination ->
             destination.start()

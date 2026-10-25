@@ -1,9 +1,11 @@
 package ru.kniterp.messenger
 
 import android.app.Application
+import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.AndroidViewModel
 import java.util.UUID
 import javax.net.ssl.SSLException
+import javax.net.ssl.X509TrustManager
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,7 +18,9 @@ data class AuthUiState(val loading: Boolean = true, val busy: Boolean = false, v
     val login: LoginView = LoginView(), val accountId: String = "", val ended: String? = null,
     val ready: Boolean = false, val notice: Int? = null, val error: Int? = null,
     val peer: String = "", val messages: List<ChatMessage> = emptyList(), val pendingIds: Set<String> = emptySet(),
-    val safetyNumber: String = "", val queuedId: String = "")
+    val safetyNumber: String = "", val queuedId: String = "",
+    /** Public challenge id: the test-stand operator reads the Fake SMS code by it. Not a secret without the operator key. */
+    val challengeId: String = "")
 
 /** The screen never owns a session or closes it on rotation/navigation. */
 class AuthModel(application: Application) : AndroidViewModel(application) {
@@ -40,41 +44,56 @@ class AuthModel(application: Application) : AndroidViewModel(application) {
 }
 
 /** Exactly one controller and UserSession per active profile in this application process. */
-private object AuthOwners {
+internal object AuthOwners {
     private var instance: AuthController? = null
-    @Synchronized fun get(application: Application): AuthController = instance ?: AuthController(application).also { instance = it }
+    /** Instrumentation only: root of a CI-generated HTTPS front. Hostname and SPKI pins are still enforced. */
+    @VisibleForTesting @Volatile var testTrust: X509TrustManager? = null
+    @Synchronized fun get(application: Application): AuthController =
+        instance ?: AuthController(application, trust = testTrust).also { instance = it }
+    /** Instrumentation only: forget the in-memory owner as process death would. Durable state is untouched. */
+    @VisibleForTesting @Synchronized fun simulateProcessDeath() { instance?.close(); instance = null }
 }
 
 @Serializable private data class ActivationProfile(val deviceId: String, val server: ServerEndpoint, val prepared: Boolean = false)
 
-private class AuthController(private val application: Application) {
+/** [registryName] and [wrap] exist for instrumentation: a second synthetic phone and injected transport failures. */
+internal class AuthController(private val application: Application, registryName: String = "auth-registry",
+                              private val trust: X509TrustManager? = null,
+                              private val wrap: (MessageApi) -> MessageApi = { it }) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutable = MutableStateFlow(AuthUiState())
     val state: StateFlow<AuthUiState> = mutable
     private val db by lazy { AppDatabase.get(application) }
-    private val registry by lazy { RoomVault(db, "auth-registry") }
+    private val registry by lazy { RoomVault(db, registryName) }
     private var server: ServerEndpoint? = null
     private var profile: Profile? = null
     private var previousEnded: String? = null
     private var started = false
 
-    private class Profile(val vault: RoomVault, val device: LocalDevice, signer: DeviceSigner,
+    private inner class Profile(val vault: RoomVault, val device: LocalDevice, signer: DeviceSigner,
                           val endpoint: ServerEndpoint) {
         val store = VaultAuthStore(vault)
         val signal = SignalClient(vault)
-        val auth = AuthApi.connect(endpoint)
+        val auth = AuthApi.connect(endpoint, trust)
         val flow = LoginFlow(Login(auth, store, signer, device))
         val session = UserSession(auth, store, signer, device)
-        val api = PinnedApi.session(endpoint, session)
-        val activation = ActivationCompletion(vault, store, device, api)
-        val delivery = Delivery(vault, api)
+        val api = PinnedApi.session(endpoint, session, trust)
+        private val messages = wrap(api)
+        val activation = ActivationCompletion(vault, store, device, messages)
+        // A recipient on a new device is held, not retried blindly, and must not block the inbox.
+        val delivery = Delivery(vault, messages) { it is ApiFailure && it.code == "RECIPIENT_DEVICE_CHANGED" }
         fun close() { api.close(); auth.close() }
     }
 
-    @Synchronized fun start() {
-        if (started) return
+    /** Current activation's device id; a new activation always gets a new one. */
+    @VisibleForTesting val deviceId: String? get() = profile?.device?.deviceId
+
+    fun close() { scope.cancel(); profile?.close() }
+
+    @Synchronized fun start(): Job? {
+        if (started) return null
         started = true
-        operation {
+        return operation {
             val saved = record()
             server = saved?.server
             if (saved != null) {
@@ -122,17 +141,22 @@ private class AuthController(private val application: Application) {
         Wire.id(peer); require(peer != current.signal.localDevice().accountId)
         mutable.value = mutable.value.copy(peer = peer)
     }
-    fun synchronize() = operation {
-        val report = active().delivery.synchronize(maxPages = 3, maxOutgoing = 20)
-        if (report.rejectedSequences.isNotEmpty()) mutable.value = mutable.value.copy(error = R.string.net_rejected)
-    }
+    fun synchronize() = operation { report(active().delivery.synchronize(maxPages = 3, maxOutgoing = 20)) }
     fun send(text: String) = operation {
         val current = active()
         val item = current.delivery.queue(mutable.value.peer, text)
         mutable.value = mutable.value.copy(queuedId = item.clientMessageId) // Clear only after encrypted commit.
         snapshot()
-        val report = current.delivery.synchronize(maxPages = 3, maxOutgoing = 20)
-        if (report.rejectedSequences.isNotEmpty()) mutable.value = mutable.value.copy(error = R.string.net_rejected)
+        report(current.delivery.synchronize(maxPages = 3, maxOutgoing = 20))
+    }
+    /** A changed peer device or identity is shown, never accepted silently; affected messages stay unaccepted. */
+    private fun report(report: DeliveryReport) {
+        val error = when {
+            report.heldIds.isNotEmpty() -> R.string.net_identity_changed
+            report.rejectedSequences.isNotEmpty() -> R.string.net_rejected
+            else -> return
+        }
+        mutable.value = mutable.value.copy(error = error)
     }
     private fun active() = requireNotNull(profile).also { check(it.activation.ready()) { "Activation incomplete" } }
 
@@ -180,14 +204,16 @@ private class AuthController(private val application: Application) {
         mutable.value = mutable.value.copy(loading = false, origin = server?.canonicalOrigin().orEmpty(),
             login = current?.flow?.view() ?: LoginView(), accountId = stored?.session?.accountId.orEmpty(),
             ready = ready, ended = if (stored?.session != null) null else previousEnded,
+            challengeId = stored?.pendingLogin?.challenge?.challengeId.orEmpty(),
             messages = current?.signal?.history().orEmpty(), pendingIds = current?.signal?.pendingIds().orEmpty(),
             safetyNumber = if (ready && peer.isNotEmpty() && current!!.signal.hasPeer(peer)) current.signal.safetyNumber(peer) else "")
     }
 
-    @Synchronized private fun operation(notice: Int? = null, action: () -> Unit) {
-        if (mutable.value.busy) return
+    /** One operation at a time; a call while busy is dropped and returns null. */
+    @Synchronized private fun operation(notice: Int? = null, action: () -> Unit): Job? {
+        if (mutable.value.busy) return null
         mutable.value = mutable.value.copy(busy = true, error = null, notice = null)
-        scope.launch {
+        return scope.launch {
             try { action(); snapshot(); mutable.value = mutable.value.copy(notice = notice) }
             catch (failure: Exception) {
                 if (failure is CancellationException) throw failure
@@ -199,6 +225,7 @@ private class AuthController(private val application: Application) {
                         "PIN_REQUIRED" -> R.string.auth_err_pin_required
                         "PIN_TOO_SIMPLE", "PIN_FORMAT" -> R.string.auth_err_pin_simple
                         "REAUTH_REQUIRED" -> R.string.auth_err_reauth
+                        "RECIPIENT_DEVICE_CHANGED" -> R.string.net_identity_changed
                         else -> R.string.auth_err_server
                     }
                     is SSLException, is java.io.IOException -> R.string.auth_err_network

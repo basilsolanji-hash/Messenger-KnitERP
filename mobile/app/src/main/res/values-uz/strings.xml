@@ -73,6 +73,7 @@
     <string name="auth_resend">Kodni qayta yuborish</string>
     <string name="auth_resend_in">%1$d s dan so‘ng qayta yuborish</string>
     <string name="auth_change_number">Raqamni o‘zgartirish</string>
+    <string name="auth_operator_request">Test stendi operatori uchun so‘rov raqami (maxfiy emas):</string>
     <string name="auth_pin_title">Akkaunt PIN-kodi</string>
     <string name="auth_pin_no_recovery">Unutilgan PIN-ni tiklab bo‘lmaydi: qo‘llab-quvvatlash xizmati uni olib tashlay olmaydi.</string>
     <string name="auth_pin_hint">PIN — 6 ta raqam</string>

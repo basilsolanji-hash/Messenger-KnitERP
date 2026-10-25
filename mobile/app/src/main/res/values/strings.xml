@@ -73,6 +73,7 @@
     <string name="auth_resend">Отправить код снова</string>
     <string name="auth_resend_in">Отправить снова через %1$d с</string>
     <string name="auth_change_number">Изменить номер</string>
+    <string name="auth_operator_request">Номер запроса для оператора тестового стенда (не секрет):</string>
     <string name="auth_pin_title">PIN-код аккаунта</string>
     <string name="auth_pin_no_recovery">Забытый PIN восстановить нельзя: поддержка не может его снять.</string>
     <string name="auth_pin_hint">PIN — 6 цифр</string>

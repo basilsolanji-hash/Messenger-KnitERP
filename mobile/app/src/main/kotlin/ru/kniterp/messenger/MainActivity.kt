@@ -1,6 +1,7 @@
 package ru.kniterp.messenger
 
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -38,6 +39,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Codes, PINs, operator JSON and message text: no screenshots, screen recording or recent-apps thumbnail.
+        window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
         enableEdgeToEdge()
         setContent { OsMessenger() }
     }

@@ -5,9 +5,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
@@ -90,6 +92,12 @@ import ru.kniterp.messenger.core.SignalClient
             }
             LoginStep.CODE -> {
                 item { Text(view.phone, fontFamily = FontFamily.Monospace) }
+                if (state.challengeId.isNotEmpty()) item {
+                    SelectionContainer {
+                        Text(stringResource(R.string.auth_operator_request) + "\n" + state.challengeId, Modifier.testTag("challengeId"),
+                            fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
                 item { OutlinedTextField(code, { if (it.length <= view.codeLength && it.all { c -> c in '0'..'9' }) code = it },
                     label = { Text(stringResource(R.string.auth_code)) }, singleLine = true, keyboardOptions = digits,
                     modifier = Modifier.fillMaxWidth(), enabled = enabled) }

@@ -73,6 +73,7 @@
     <string name="auth_resend">Адправіць код зноў</string>
     <string name="auth_resend_in">Адправіць зноў праз %1$d с</string>
     <string name="auth_change_number">Змяніць нумар</string>
+    <string name="auth_operator_request">Нумар запыту для аператара тэставага стэнда (не сакрэт):</string>
     <string name="auth_pin_title">PIN-код акаўнта</string>
     <string name="auth_pin_no_recovery">Забыты PIN аднавіць нельга: падтрымка не можа яго зняць.</string>
     <string name="auth_pin_hint">PIN — 6 лічбаў</string>

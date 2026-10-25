@@ -73,6 +73,7 @@
     <string name="auth_resend">Кодты қайта жіберу</string>
     <string name="auth_resend_in">%1$d с кейін қайта жіберу</string>
     <string name="auth_change_number">Нөмірді өзгерту</string>
+    <string name="auth_operator_request">Тест стендінің операторына арналған сұрау нөмірі (құпия емес):</string>
     <string name="auth_pin_title">Аккаунттың PIN-коды</string>
     <string name="auth_pin_no_recovery">Ұмытылған PIN-ды қалпына келтіру мүмкін емес: қолдау қызметі оны алып тастай алмайды.</string>
     <string name="auth_pin_hint">PIN — 6 сан</string>

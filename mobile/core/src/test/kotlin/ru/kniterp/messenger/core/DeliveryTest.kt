@@ -14,6 +14,7 @@ class DeliveryTest {
         var loseAck = false
         var loseClaim = false
         var wrongAcceptance = false
+        var recipientMoved = false
         fun api(actor: Participant) = object : MessageApi {
             override fun me(): RemoteMe = error("Not used")
             override fun publish(bundle: PublishBundle) = Unit
@@ -24,6 +25,7 @@ class DeliveryTest {
             }
             override fun send(message: Outgoing): Accepted {
                 sent += message
+                if (recipientMoved) throw IllegalStateException("RECIPIENT_DEVICE_CHANGED")
                 val response = accepted.getOrPut(message.clientMessageId) {
                     val sequence = (accepted.size + 1).toLong()
                     packets += message.incoming(actor.device, sequence)
@@ -60,6 +62,24 @@ class DeliveryTest {
         assertEquals(1, server.packets.size)
         assertEquals(1, Delivery(b.vault, server.api(b)).synchronize().received)
         assertEquals("012345 қазақша", b.client.history().single().text)
+    }
+    @Test fun heldOutgoingDoesNotBlockInboxAndKeepsItsCiphertext() {
+        val a = participant(); val b = participant(); val server = Server(a, b)
+        Delivery(b.vault, server.api(b)).apply { queue(a.device.accountId, "incoming still flows"); synchronize() }
+        val sender = Delivery(a.vault, server.api(a)) { it.message == "RECIPIENT_DEVICE_CHANGED" }
+        sender.queue(b.device.accountId, "held")
+        val original = a.client.pending().single()
+        server.recipientMoved = true
+        val report = sender.synchronize()
+        assertEquals(listOf(original.clientMessageId), report.heldIds)
+        assertEquals(1, report.received)
+        assertEquals("incoming still flows", a.client.history().single { !it.outgoing }.text)
+        assertEquals(original, a.client.pending().single())
+        // Without the classifier the same refusal still aborts, as before.
+        assertFailsWith<IllegalStateException> { Delivery(a.vault, server.api(a)).synchronize() }
+        server.recipientMoved = false
+        assertEquals(1, sender.synchronize().accepted)
+        assertEquals(original, server.sent.last())
     }
     @Test fun lostAckRedeliversCommittedMessageWithoutSecondHistoryEntry() {
         val a = participant(); val b = participant(); val server = Server(a, b)

@@ -4,6 +4,8 @@ import java.io.ByteArrayOutputStream
 import java.io.Closeable
 import java.time.OffsetDateTime
 import java.util.concurrent.TimeUnit
+import javax.net.ssl.SSLContext
+import javax.net.ssl.X509TrustManager
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.intOrNull
@@ -46,6 +48,17 @@ private class FixedToken(private val token: String) : AccessTokens {
     override fun current() = token
     override fun rejected(token: String) = false
 }
+
+/**
+ * Platform trust by default. [trust] replaces the root set ONLY for instrumentation against a CI-generated CA; the
+ * hostname verifier and the exact-host SPKI pins added by [pinnedClient] apply unchanged. Nothing in the APK sets it.
+ */
+internal fun baseClient(trust: X509TrustManager?): OkHttpClient = OkHttpClient.Builder().apply {
+    if (trust != null) {
+        val context = SSLContext.getInstance("TLS").apply { init(null, arrayOf(trust), null) }
+        sslSocketFactory(context.socketFactory, trust)
+    }
+}.build()
 
 /** Platform trust, hostname, exact-host SPKI pins, modern TLS, no redirects, no silent retries. */
 internal fun pinnedClient(server: ServerEndpoint, baseClient: OkHttpClient): OkHttpClient {
@@ -98,7 +111,8 @@ class PinnedApi internal constructor(
         internal fun configured(config: TestConnection, expiresAtMillis: Long?, baseClient: OkHttpClient, clock: () -> Long): PinnedApi =
             PinnedApi(config.server.url(), FixedToken(config.accessToken), pinnedClient(config.server, baseClient), expiresAtMillis, clock)
         /** User session: tokens refresh themselves; a 401 is retried once with the next token. Every call is idempotent. */
-        fun session(server: ServerEndpoint, tokens: AccessTokens): PinnedApi = session(server, tokens, OkHttpClient())
+        fun session(server: ServerEndpoint, tokens: AccessTokens, trust: X509TrustManager? = null): PinnedApi =
+            session(server, tokens, baseClient(trust))
         internal fun session(server: ServerEndpoint, tokens: AccessTokens, baseClient: OkHttpClient): PinnedApi =
             PinnedApi(server.url(), tokens, pinnedClient(server, baseClient), null, System::currentTimeMillis)
     }
