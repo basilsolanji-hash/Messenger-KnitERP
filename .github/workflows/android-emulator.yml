@@ -60,7 +60,7 @@ jobs:
       - name: Instrumentation tests
         working-directory: mobile
         run: |
-          adb logcat -c
+          adb logcat -c || echo "logcat -c failed" > "$LOGS/logcat-clear.txt"
           set -o pipefail
           status=0
           ./gradlew :app:connectedDebugAndroidTest 2>&1 | tee "$LOGS/gradle.txt" || status=$?
