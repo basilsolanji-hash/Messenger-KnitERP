@@ -29,15 +29,15 @@ class AuthEntryTest {
         val context = compose.activity
         assertSame(AuthModel(context.application).state, AuthModel(context.application).state)
         compose.waitUntil(60_000) { compose.onAllNodesWithText(context.getString(R.string.settings)).fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText(context.getString(R.string.settings)).performClick()
+        compose.onNodeWithText(context.getString(R.string.settings)).tap()
         compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(context.getString(R.string.auth_title)))
-        compose.onNodeWithText(context.getString(R.string.auth_title)).performClick()
+        compose.onNodeWithText(context.getString(R.string.auth_title)).tap()
         compose.waitUntil(30_000) { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty() }
         val pins = listOf(Wire.base64(ByteArray(32)), Wire.base64(ByteArray(32) { 1 })).map { "sha256/$it" }
         val config = Wire.json.encodeToString(ServerEndpoint("https://example.com", pins))
         compose.onNode(hasSetTextAction() and hasText(context.getString(R.string.auth_server))).performTextInput(config)
         hideKeyboard()
-        compose.onNodeWithText(context.getString(R.string.auth_server_save)).performClick()
+        compose.onNodeWithText(context.getString(R.string.auth_server_save)).tap()
         // The list is lazy: off-screen items are not composed, so wait for the saved origin at the top, then scroll.
         val target = context.getString(R.string.net_target) + " https://example.com/"
         compose.waitUntil(60_000) { compose.onAllNodesWithText(target).fetchSemanticsNodes().isNotEmpty() }
@@ -45,7 +45,7 @@ class AuthEntryTest {
         compose.onNode(hasSetTextAction() and hasText(context.getString(R.string.auth_phone))).performTextInput("12345")
         compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(context.getString(R.string.auth_get_code)))
         hideKeyboard()
-        compose.onNodeWithText(context.getString(R.string.auth_get_code)).performClick()
+        compose.onNodeWithText(context.getString(R.string.auth_get_code)).tap()
         compose.waitUntil(20_000) { compose.onAllNodesWithText(context.getString(R.string.auth_err_phone)).fetchSemanticsNodes().isNotEmpty() }
         compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(context.getString(R.string.auth_country_uz)))
         File(context.cacheDir, "os-auth-entry.png").outputStream().use {

@@ -44,9 +44,9 @@ class RecreateTest {
     private fun openLogin() = compose.waitUntil(90_000) {
         runCatching {
             if (compose.onAllNodes(hasText(s(R.string.auth_title))).fetchSemanticsNodes().isEmpty())
-                compose.onNodeWithText(s(R.string.settings)).performClick()
+                compose.onNodeWithText(s(R.string.settings)).tap()
             compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(s(R.string.auth_title)))
-            compose.onNodeWithText(s(R.string.auth_title)).performClick()
+            compose.onNodeWithText(s(R.string.auth_title)).tap()
         }
         compose.waitForIdle()
         compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty()
@@ -65,7 +65,7 @@ class RecreateTest {
         compose.onNode(server).performTextInput(Wire.json.encodeToString(ServerEndpoint(origin, pins)))
         hideKeyboard()
         shown(hasText(s(R.string.auth_server_save)) and isEnabled())
-        compose.onNodeWithText(s(R.string.auth_server_save)).performClick()
+        compose.onNodeWithText(s(R.string.auth_server_save)).tap()
         val target = hasText(s(R.string.net_target) + " " + origin)
         shown(target)
         val owner = AuthOwners.get(activity.application)

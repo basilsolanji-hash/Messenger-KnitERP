@@ -17,6 +17,7 @@ import ru.kniterp.messenger.AuthOwners
 import ru.kniterp.messenger.MainActivity
 import ru.kniterp.messenger.R
 import ru.kniterp.messenger.TestSeams
+import ru.kniterp.messenger.tap
 
 /** The real screens against the live API: SMS code from the operator, wrong code, PIN, rotation, process death, logout. */
 @RunWith(AndroidJUnit4::class)
@@ -50,14 +51,14 @@ class LiveLoginUiTest {
     }
     private fun click(id: Int) = compose.waitUntil(30_000) {
         hideKeyboard()
-        runCatching { scrollTo(hasText(s(id))); compose.onNodeWithText(s(id)).performClick() }.isSuccess
+        runCatching { scrollTo(hasText(s(id))); compose.onNodeWithText(s(id)).tap() }.isSuccess
     }
     private fun field(label: Int) = hasSetTextAction() and hasText(s(label))
     private fun type(label: Int, text: String) = compose.waitUntil(30_000) {
         runCatching { scrollTo(field(label)); compose.onNode(field(label)).performTextInput(text) }.isSuccess
     }
     private fun openLogin() {
-        compose.onNodeWithText(s(R.string.settings)).performClick()
+        compose.onNodeWithText(s(R.string.settings)).tap()
         click(R.string.auth_title)
         waitFor(hasSetTextAction())
     }
