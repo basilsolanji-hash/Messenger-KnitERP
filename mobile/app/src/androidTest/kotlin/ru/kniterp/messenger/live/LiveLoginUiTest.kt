@@ -44,14 +44,15 @@ class LiveLoginUiTest {
         compose.waitUntil(timeout) { compose.onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty() }
     private fun list() = compose.onNode(hasScrollToNodeAction())
     private fun scrollTo(matcher: SemanticsMatcher) = list().performScrollToNode(matcher)
-    /** Scroll and click as one retried step: the keyboard can push an item out of the lazy list in between. */
     /** On Android 8 a just-opened keyboard covers the button and takes the click, so close it first. */
     private fun hideKeyboard() = scenario!!.onActivity {
         it.getSystemService(InputMethodManager::class.java).hideSoftInputFromWindow(it.window.decorView.windowToken, 0)
     }
     private fun click(id: Int) = compose.waitUntil(30_000) {
         hideKeyboard()
-        runCatching { scrollTo(hasText(s(id))); compose.onNodeWithText(s(id)).tap() }.isSuccess
+        // Only an enabled button: while an operation is busy the screen disables it and a click would do nothing.
+        val button = hasText(s(id)) and isEnabled()
+        runCatching { scrollTo(button); compose.onNode(button).tap() }.isSuccess
     }
     private fun field(label: Int) = hasSetTextAction() and hasText(s(label))
     private fun type(label: Int, text: String) = compose.waitUntil(30_000) {
