@@ -42,6 +42,36 @@ bash /opt/os-communications/deploy/closed-stand/set-allowlist.sh --tester IP_О�
 
 Ожидается `ALLOWLIST_OK /etc/os-communications-https-vN`. Pins не меняются: сертификат и ключи те же.
 
+## 2а. WireGuard: телефоны через любой интернет (решение пользователя 25.10)
+
+Пользователь выбрал, чтобы телефоны работали и через Wi‑Fi, и через мобильный интернет. Это отступление от исходного «только 443 и 22»: открывается ещё один порт, `UDP 51820`.
+
+Туннель раздельный: телефон отправляет в него только трафик к IP стенда, остальной интернет идёт напрямую. На VPS нет ни forwarding, ни NAT. Nginx видит каждый телефон по постоянному адресу `10.66.0.N`. Доступ по-прежнему по allowlist: адреса VPN вносятся в него явно.
+
+VPS:
+
+```bash
+bash /opt/os-communications/deploy/closed-stand/wireguard.sh init           # WG_INIT_OK
+bash /opt/os-communications/deploy/closed-stand/wireguard.sh add phone8 2   # QR -> приложение WireGuard на Android 8
+bash /opt/os-communications/deploy/closed-stand/wireguard.sh add phone2 3   # QR -> второй телефон
+bash /opt/os-communications/deploy/closed-stand/wireguard.sh forget         # после сканирования стереть ключи телефонов с сервера
+bash /opt/os-communications/deploy/closed-stand/set-allowlist.sh --tester 95.27.146.208 --tester 10.66.0.2 --tester 10.66.0.3 --operator 95.27.146.208
+```
+
+На телефоне:
+
+1. Установить приложение **WireGuard**.
+2. Нажать **+**, выбрать «Сканировать QR-код» и включить туннель.
+3. При выключенном Wi‑Fi открыть `https://chat.kniterp.online/health/ready`. Ожидается `403`: это операторский путь, значит телефон дошёл до стенда как тестировщик.
+4. Проверить `wireguard.sh status`: у телефона должен быть `latest handshake`.
+
+QR-код содержит ключ телефона. Его не фотографируют и никому не пересылают.
+
+Риски:
+
+- Российские мобильные операторы могут замедлять или блокировать протокол WireGuard. Если на мобильном интернете нет handshake, нужен обфусцированный вариант (AmneziaWG) — отдельное решение.
+- Пока VPN на телефоне выключен, стенд доступен ему только из Wi‑Fi, который внесён в список.
+
 ## 3. Внешние проверки (Windows)
 
 ```powershell
