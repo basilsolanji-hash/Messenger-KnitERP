@@ -42,6 +42,18 @@ jobs:
       - run: dotnet restore server/Messenger.Api --locked-mode
       - run: dotnet build server/Messenger.Api -c Release --no-restore
       - run: python3 scripts/check-e2ee.py
+      # Diagnostics only: logs and artifacts need blob storage, check annotations do not.
+      - name: Annotate failures
+        if: failure()
+        run: |
+          python3 - <<'PY'
+          import glob, xml.etree.ElementTree as ET
+          for path in glob.glob('mobile/*/build/test-results/**/*.xml', recursive=True):
+              for case in ET.parse(path).getroot().iter('testcase'):
+                  for bad in list(case.findall('failure')) + list(case.findall('error')):
+                      text = (bad.text or bad.get('message') or '')[:3000].replace('%', '%25').replace('\r', '').replace('\n', '%0A')
+                      print(f"::error title={case.get('classname','').split('.')[-1]}.{case.get('name')}::{text}")
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:

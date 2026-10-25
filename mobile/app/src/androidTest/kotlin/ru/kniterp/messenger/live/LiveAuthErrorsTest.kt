@@ -87,5 +87,8 @@ class LiveAuthErrorsTest {
         listOf(late, owner, exhausted, resend, thief).forEach { it.close() }
     }
 
-    private fun sleepUntil(deadline: Long) { (deadline - System.currentTimeMillis()).takeIf { it > 0 }?.let(Thread::sleep) }
+    private fun sleepUntil(deadline: Long) {
+        val wait = deadline - System.currentTimeMillis()
+        if (wait > 0) Thread.sleep(wait)
+    }
 }

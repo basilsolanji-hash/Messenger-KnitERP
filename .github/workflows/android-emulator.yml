@@ -53,7 +53,10 @@ jobs:
       - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0' emulator "$IMAGE"
       - uses: gradle/actions/setup-gradle@v4
       # Build before booting the emulator so its startup time does not count against compilation.
-      - run: mkdir -p "$LOGS" && ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest
+      - run: |
+          mkdir -p "$LOGS"
+          set -o pipefail
+          ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest 2>&1 | tee "$LOGS/build.txt"
         working-directory: mobile
       - uses: actions/setup-dotnet@v4
         with:
@@ -148,12 +151,21 @@ jobs:
               for case in ET.parse(path).getroot().iter('testcase'):
                   for bad in list(case.findall('failure')) + list(case.findall('error')):
                       note(f"{case.get('classname','').split('.')[-1]}.{case.get('name')}", (bad.text or bad.get('message') or '')[:3500])
-          for name, keep in [('device.txt', 5), ('avd.txt', 20), ('emulator.txt', 40), ('api.txt', 30), ('front.txt', 10), ('gradle.txt', 60), ('logcat.txt', 60)]:
+              print('results:', path)
+          def lines(name):
               try:
-                  lines = [l for l in open(os.path.join(logs, name), errors='replace') if l.strip() and 'Seeding context' not in l and 'val in interceptor' not in l]
+                  return [l for l in open(os.path.join(logs, name), errors='replace') if l.strip() and 'Seeding context' not in l and 'val in interceptor' not in l]
               except FileNotFoundError:
-                  continue
-              if lines: note(name, ''.join(lines[-keep:]))
+                  return []
+          for name, keep in [('device.txt', 5), ('avd.txt', 8), ('emulator.txt', 15), ('api.txt', 30), ('front.txt', 10)]:
+              if lines(name): note(name, ''.join(lines(name)[-keep:])[-3500:])
+          build = [l for l in lines('build.txt') if l.startswith('e: ') or 'FAILED' in l or 'Execution failed' in l]
+          if build: note('build.txt', ''.join(build[:30])[:3500])
+          gradle = [l for l in lines('gradle.txt') if any(k in l for k in ('FAILED', 'Tests on', 'tests completed', 'Exception', 'Error', 'error:', 'e: '))]
+          if gradle: note('gradle.txt', ''.join(gradle[-40:])[-3500:])
+          # Exception and "failed:" lines from the test runner, without stack frames.
+          crash = [l for l in lines('logcat.txt') if '\tat ' not in l and '... ' not in l]
+          if crash: note('logcat.txt', ''.join(crash[:40])[:3500])
           PY
       - name: Stop emulator
         if: always()

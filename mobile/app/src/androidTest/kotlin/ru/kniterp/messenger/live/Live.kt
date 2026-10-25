@@ -106,8 +106,8 @@ class Phone(val registry: String = "live-${UUID.randomUUID()}") : Closeable {
     val state: AuthUiState get() = controller.state.value
 
     /** Runs one controller operation to completion; a dropped (busy) call fails the test. */
-    fun act(operation: AuthController.() -> Job?): AuthUiState {
-        val job = requireNotNull(controller.operation()) { "Operation dropped: controller busy" }
+    fun act(block: AuthController.() -> Job?): AuthUiState {
+        val job = requireNotNull(controller.block()) { "Operation dropped: controller busy" }
         runBlocking { withTimeout(180_000) { job.join() } }
         return state
     }
