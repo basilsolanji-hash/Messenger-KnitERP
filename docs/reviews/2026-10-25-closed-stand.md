@@ -10,7 +10,21 @@
 - [x] Прочитаны `deploy/README.md`, `docs/CLOSED_HTTPS.md`, `docs/DECISIONS.md`, шаблоны systemd, `init-dev.py`, `prepare-closed-https.py`, `server-backup.py` и серверный код для прокси, лимитов SMS и отзыва сессий.
 - [ ] **Остановился здесь:** пишу runbook `deploy/CLOSED_STAND_RUNBOOK.md` с точными командами для пользователя, а также вспомогательные скрипты (см. «План»).
 - [x] Шаг 2 — инвентаризация VPS выполнена пользователем (вывод `inventory.txt`, сфотографирован с экрана), см. ниже.
-- [ ] Шаги 3–10 на VPS: ждут выполнения.
+- [x] Подготовка VPS: swap 1 ГБ, установка docker.io/compose/buildx/nginx/age, общий `nginx.service` отключён, перезагрузка на новое ядро.
+- [x] Шаг 3 (частично): checkout `/opt/os-communications` @ `e1145f5b…`, `.env` через `init-dev.py` с правами `600 root`, игнорируется git. `AllowedHosts` ещё не задан — ждёт домена.
+- [x] Шаг 6 (частично): compose unit установлен, `systemd-analyze verify` OK, запущен (не включён в автозапуск); `/health/ready` через loopback = ready; слушает только `127.0.0.1:5080`.
+- [x] Шаг 5 (измерение): фактический peer, видимый API, = `::ffff:172.18.0.1` = gateway compose-сети `172.18.0.1`. В `.env` ещё не внесён.
+- [ ] Шаги 4, 5 (настройка и отрицательная проверка XFF), 6 (HTTPS, firewall), 7–10: ждут домена и выполнения.
+
+## Выполнено на VPS после инвентаризации (выводы пользователя 25.10)
+
+- Swap: `fallocate -l 1G /swapfile`, `mkswap`, `swapon`, запись в `/etc/fstab` → `Swap: 1.0Gi`; переживает перезагрузку.
+- `apt-get install --no-install-recommends docker.io docker-compose-v2 docker-buildx nginx age`; `systemctl disable --now nginx`. Версии: Docker 29.1.3, Docker Compose 2.40.3, buildx 0.30.1, nginx 1.28.3 (Ubuntu), age 1.2.1. После установки снаружи слушает только 22, `docker: active`, `nginx: inactive/disabled`.
+- Во время установки в фоне работал `unattended-upgrades` (~615 МБ кэша apt, держал lock); обновил ядро до 7.0.0-38. После `apt-get clean` и перезагрузки: swap активен, docker active, nginx inactive. Hostname после перезагрузки сменился (назначается хостингом) — на стенд не влияет.
+- `git clone --depth 1 --branch main …/Messenger-KnitERP.git /opt/os-communications` → `commit e1145f5b48b7aeed0d3cf9dbcfeb82b1af9fa1c6`; `python3 scripts/init-dev.py` → `.env` `600 root`, `git status --ignored` = `!! .env`.
+- `docker compose pull db` и `docker compose build api` прошли на 1 ГБ RAM + 1 ГБ swap: образы `kniterp-messenger-dev-api:latest` 383 МБ, `postgres:18` 650 МБ. Диск после очистки: 8.6G, занято 5.9G, свободно 2.8G.
+- `install -m 0644 deploy/systemd/os-communications-compose.service.example /etc/systemd/system/os-communications-compose.service`; `systemd-analyze verify` → `VERIFY_OK` (предупреждения только о системных xfs_scrub unit); `systemctl start` → `active / disabled`; `api Up 127.0.0.1:5080->8080/tcp`, `db Up (healthy) 5432/tcp`; `curl -H 'Host: localhost' http://127.0.0.1:5080/health/ready` → `{"status":"ready"}` (первая попытка — reset, API ещё стартовал); `ss -tlnp` — только `127.0.0.1:5080` (docker-proxy), 5432 на хосте не слушает.
+- Peer IP: `docker network inspect kniterp-messenger-dev_default` → `gateway=172.18.0.1 subnet=172.18.0.0/16`; удерживаемое TCP-соединение к `127.0.0.1:5080`, прочитанное из `/proc/net/tcp6` контейнера api → `PEER_SEEN_BY_API ::ffff:172.18.0.1`. Docker использует userland `docker-proxy`. Значение для `.env`: `Auth__TrustedProxies__0=172.18.0.1` (проверено только на сервере; внешняя отрицательная проверка XFF — после HTTPS).
 
 ## Инвентаризация VPS (шаг 2, вывод пользователя 25.10)
 
