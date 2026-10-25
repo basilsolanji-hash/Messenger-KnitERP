@@ -28,7 +28,11 @@ class NetworkSetupTest {
                 compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNode(hasSetTextAction() and hasText("Тестовое имя")).performTextInput("Synthetic Android 26")
-        compose.onNodeWithText("Создать публичный запрос").performClick()
+        // Click only once enabled and on screen: on Android 8 the open keyboard can cover the button.
+        val create = hasText("Создать публичный запрос") and isEnabled()
+        compose.waitUntil(30_000) { compose.onAllNodes(create).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(create)
+        compose.onNode(create).performClick()
         // The request appears below the button in a lazy list; with the keyboard open it may not be composed yet.
         compose.waitUntil(30_000) {
             runCatching { compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("\"identityKey\"", substring = true)) }.isSuccess
