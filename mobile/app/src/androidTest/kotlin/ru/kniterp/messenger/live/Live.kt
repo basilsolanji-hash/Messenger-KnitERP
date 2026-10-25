@@ -99,7 +99,7 @@ class FaultyApi(private val real: MessageApi) : MessageApi {
 }
 
 /** One synthetic phone: the production controller with its own registry, so several can share one emulator. */
-class Phone(val registry: String = "live-${UUID.randomUUID()}") : Closeable {
+internal class Phone(val registry: String = "live-${UUID.randomUUID()}") : Closeable {
     @Volatile lateinit var faults: FaultyApi
         private set
     val controller = AuthController(Live.application, registry, Live.trust) { FaultyApi(it).also { api -> faults = api } }
