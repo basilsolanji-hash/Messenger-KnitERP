@@ -2,6 +2,7 @@ package ru.kniterp.messenger
 
 import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
+import android.view.inputmethod.InputMethodManager
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
@@ -45,6 +46,10 @@ class RecreateTest {
         compose.onNodeWithText(s(R.string.auth_title)).performClick()
         waitFor(hasSetTextAction())
     }
+    /** On Android 8 a just-opened keyboard covers the next button and swallows the click. */
+    private fun hideKeyboard() = scenario!!.onActivity {
+        it.getSystemService(InputMethodManager::class.java).hideSoftInputFromWindow(it.window.decorView.windowToken, 0)
+    }
     private fun phoneField() = hasSetTextAction() and hasText(s(R.string.auth_phone))
 
     @Test fun loginScreenSurvivesRecreationRotationAndProcessDeath() {
@@ -53,7 +58,8 @@ class RecreateTest {
         val server = hasSetTextAction() and hasText(s(R.string.auth_server))
         shown(server)
         compose.onNode(server).performTextInput(Wire.json.encodeToString(ServerEndpoint(origin, pins)))
-        shown(hasText(s(R.string.auth_server_save)))
+        hideKeyboard()
+        shown(hasText(s(R.string.auth_server_save)) and isEnabled())
         compose.onNodeWithText(s(R.string.auth_server_save)).performClick()
         val target = hasText(s(R.string.net_target) + " " + origin)
         shown(target)
