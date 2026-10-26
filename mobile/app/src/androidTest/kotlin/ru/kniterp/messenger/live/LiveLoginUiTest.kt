@@ -48,12 +48,22 @@ class LiveLoginUiTest {
     private fun hideKeyboard() = scenario!!.onActivity {
         it.getSystemService(InputMethodManager::class.java).hideSoftInputFromWindow(it.window.decorView.windowToken, 0)
     }
-    private fun click(id: Int) = compose.waitUntil(60_000) {
-        hideKeyboard()
+    private fun click(id: Int) {
         // Only an enabled button: while an operation is busy the screen disables it and a click would do nothing.
         val button = hasText(s(id)) and isEnabled()
-        runCatching { scrollTo(button); compose.onNode(button).tap() }.isSuccess
+        try {
+            compose.waitUntil(60_000) { hideKeyboard(); runCatching { scrollTo(button); compose.onNode(button).tap() }.isSuccess }
+        } catch (timeout: ComposeTimeoutException) {
+            val st = AuthOwners.get(Live.application).state.value
+            throw AssertionError("'${s(id)}' not clickable. busy=${st.busy} loading=${st.loading} ready=${st.ready} " +
+                "step=${st.login.step} loginError=${st.login.error} error=${st.error?.let { s(it) }}\nScreen:\n" + screen(), timeout)
+        }
     }
+    private fun screen(): String = runCatching {
+        compose.onAllNodes(isRoot()).fetchSemanticsNodes().joinToString("\n") { root ->
+            compose.onNode(isRoot() and SemanticsMatcher("id") { it.id == root.id }).printToString(maxDepth = 30)
+        }
+    }.getOrElse { "unavailable: $it" }.take(6000)
     private fun field(label: Int) = hasSetTextAction() and hasText(s(label))
     private fun type(label: Int, text: String) = compose.waitUntil(30_000) {
         // Replacement, not input: a retry after a partial failure must not append the text twice.
