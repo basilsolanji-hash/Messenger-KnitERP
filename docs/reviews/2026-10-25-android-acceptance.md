@@ -77,6 +77,9 @@ Workflow `Android emulator instrumentation` на `e1145f5` ([run 40193169280](ht
 | `LiveAuthErrorsTest` | Ошибки кода, окно 60 с, PIN, блокировка, подробно ниже |
 | `LiveTransferTest` | Перенос номера на новый телефон и реакция собеседника, подробно ниже |
 | `LiveChatTest` | Переписка, сбои транспорта, перезапуск, повтор подготовки, подробно ниже |
+| `RecreateTest`, `RotationTest` (не живые) | 8× `recreate()` с фокусом и клавиатурой, затем «смерть процесса»; 8 поворотов с проверкой на главном потоке |
+| `TrustSeamTest` (не живой) | Подменённый корень доверия учитывается только у debuggable-сборки |
+| `zz.DestroyWithFocusStressTest` (не живой) | 2×20 уничтожений активности с полем в фокусе; стоит последним, потому что крэш завершает процесс |
 
 **`LiveLoginUiTest`:**
 
@@ -85,7 +88,7 @@ Workflow `Android emulator instrumentation` на `e1145f5` ([run 40193169280](ht
 - Кнопка повтора неактивна и показывает обратный отсчёт.
 - Набранный, но не отправленный код не переживает recreate, то есть не попадает в SavedState.
 - Неверный код показывает «Осталось попыток: 4», верный ведёт к готовности.
-- Установка PIN; поворот экрана; «смерть процесса» с новым владельцем: тот же аккаунт и deviceId, refresh подписанным challenge.
+- Установка PIN; пересоздание активности (`recreate()`); «смерть процесса» с новым владельцем: тот же аккаунт и deviceId, refresh подписанным challenge.
 - Отключение PIN; выход: новый deviceId для следующей активации.
 - В logcat процесса и буфере обмена нет кода, PIN, `rt1.` и `Bearer `.
 
@@ -118,9 +121,9 @@ Workflow `Android emulator instrumentation` на `e1145f5` ([run 40193169280](ht
 | Уровень | Результат | Где |
 |---|---|---|
 | Сборка | Пройдено: 4 ABI APK и AndroidTest APK | все прогоны ниже |
-| JVM | Пройдено: `:core:test :network:test` и живой JVM-прогон `check-e2ee.py` с PostgreSQL 18 | [run 40195670065](https://github.com/basilsolanji-hash/Messenger-KnitERP/actions/runs/40195670065), [run 40197617529](https://github.com/basilsolanji-hash/Messenger-KnitERP/actions/runs/40197617529) (1b36e3e) |
-| Эмулятор API 36 | Пройдено: все 10 наборов, включая 4 живых, на c15a865. На 1b36e3e упал `LiveLoginUiTest` — нестабильный клик по «Отключить PIN» после открытия клавиатуры; тест исправлен в следующей ревизии | [run 40196633535](https://github.com/basilsolanji-hash/Messenger-KnitERP/actions/runs/40196633535), [run 40197617426](https://github.com/basilsolanji-hash/Messenger-KnitERP/actions/runs/40197617426) |
-| Эмулятор API 26 | **Пройдено полностью** на 1b36e3e: все 10 наборов, включая 4 живых. До этого на 1d2068a и c15a865 живые наборы прошли, падал только `NetworkSetupTest` (клик под клавиатурой) | [run 40197617426](https://github.com/basilsolanji-hash/Messenger-KnitERP/actions/runs/40197617426); ранее [run 40195670071](https://github.com/basilsolanji-hash/Messenger-KnitERP/actions/runs/40195670071), [run 40196633535](https://github.com/basilsolanji-hash/Messenger-KnitERP/actions/runs/40196633535) |
+| JVM | Пройдено: `:core:test :network:test` (с новыми тестами шва доверия и удержания) и живой JVM-прогон `check-e2ee.py` с PostgreSQL 18 | на 425c901: [push 40251376322](https://github.com/basilsolanji-hash/Messenger-KnitERP/actions/runs/40251376322), [PR 40251380932](https://github.com/basilsolanji-hash/Messenger-KnitERP/actions/runs/40251380932) |
+| Эмулятор API 36 | **Пройдено три раза подряд** на 425c901: все 17 тестов, включая 4 живых набора, `RecreateTest`, `RotationTest`, `TrustSeamTest` и `DestroyWithFocusStressTest` | [push 40251376282](https://github.com/basilsolanji-hash/Messenger-KnitERP/actions/runs/40251376282), [workflow_dispatch 40251376029](https://github.com/basilsolanji-hash/Messenger-KnitERP/actions/runs/40251376029), [PR 40251380859](https://github.com/basilsolanji-hash/Messenger-KnitERP/actions/runs/40251380859) |
+| Эмулятор API 26 | **Пройдено три раза подряд** на 425c901, тот же набор | те же три прогона |
 | Живой HTTPS закрытого стенда | **Не выполнено.** `server-endpoint.json` от задания 01 не получен; ветка `claude/2026-10-25-closed-stand` на момент отчёта содержит только план | — |
 | Два физических телефона | **Не выполнено.** Нет стенда и нет результатов от пользователя, см. чек-лист | — |
 
@@ -154,14 +157,33 @@ Workflow `Android emulator instrumentation` на `e1145f5` ([run 40193169280](ht
 - Поворот проверяет `RotationTest` без Compose-ожиданий: 8 поворотов с фокусом и клавиатурой. После каждого: новая активность, ориентация, фокус, кадры, тот же владелец `AuthOwners` и тот же deviceId.
 - `RecreateTest` и `LiveLoginUiTest` пересоздают активность через `recreate()` — это тот же путь пересоздания и сохранения владельца.
 
-**Что не установлено.** Исходное исключение, после которого остался «полуприкреплённый» узел в единственном крэше, не найдено. Крэш больше не воспроизвёлся: ни в `RecreateTest` (8 пересозданий за прогон), ни в матрице, ни в последующих прогонах. Падение процесса на телефоне при повороте или пересоздании нельзя исключить. Это пункт 5 чек-листа.
+**Крэш при уничтожении активности: что установлено и что нет.**
+
+Наблюдался 3 раза примерно на 60 job'ов. Подпись всегда одна — исключение в `onDestroy`, когда Compose разбирает экран:
+
+| Прогон | API | Тест | Исключение |
+|---|---|---|---|
+| [40195670071](https://github.com/basilsolanji-hash/Messenger-KnitERP/actions/runs/40195670071) | 36 | `AuthEntryTest`, после `recreate()` | `runDetachLifecycle` |
+| [40243011053](https://github.com/basilsolanji-hash/Messenger-KnitERP/actions/runs/40243011053) | 36 | `RecreateTest`, после `recreate()` | `ArrayIndexOutOfBounds` в `SlotWriter` при `dispose` вложенных subcomposition |
+| [40246687487](https://github.com/basilsolanji-hash/Messenger-KnitERP/actions/runs/40246687487) | 26 | `NetworkSetupTest`, обычное завершение теста без `recreate()` | `runDetachLifecycle` |
+
+Проверено и **исключено** как необходимое условие:
+
+- `FLAG_SECURE`: матрица с ним и без него;
+- снимок `captureToImage()` прямо перед `recreate()`: 60 циклов без крэша;
+- фокус в поле с открытой клавиатурой при уничтожении: `DestroyWithFocusStressTest`, 240 уничтожений без крэша;
+- расхождение версий Compose: все артефакты согласованы по BOM 2025.10.01 (`compose.ui` 1.9.4, `material3` 1.4.0).
+
+Не установлено, какое исходное исключение оставляет узел или slot table в несогласованном состоянии. В тестовой среде ошибки композиции перехватывает обвязка Compose-тестов, и видно только вторичное падение при разборе. Непроверенная гипотеза — prefetch с приостанавливаемой композицией в `LazyColumn` (`ComposeFoundationFlags`). Наличие и значение этого флага в foundation 1.9.4 подтвердить не удалось.
+
+Следующий шаг: на телефонах (пункт 5 чек-листа) и в отдельной ветке отключить этот флаг или обновить Compose BOM. Обновление требует перегенерации `gradle.lockfile`, а в этой среде нет Android SDK.
 
 ## Приёмка по пунктам задания
 
 | № | Требование | Статус |
 |---|---|---|
-| 1 | Instrumentation зелёный на API 26 и 36 в CI | Оба уровня полностью зелёные, но на разных ревизиях: API 36 на c15a865, API 26 на 1b36e3e. Оставшиеся падения — нестабильные UI-клики и крэш Compose при `recreate`, см. выше. Итог на последней ревизии PR — в статусе проверок PR |
-| 2 | Один owner/UserSession: навигация, поворот, две ViewModel, process death; новый профиль на активацию; повтор подготовки сохраняет deviceId и ключи | Эмулятор: `AuthEntryTest`, `LiveLoginUiTest`, `LiveChatTest`. Process death моделируется новым владельцем над теми же SQLCipher/Keystore, настоящий kill процесса не делался. Повтор после потерянной публикации проверен; прерывание до создания ключей — только кодом и прежними JVM-тестами |
+| 1 | Instrumentation зелёный на API 26 и 36 в CI | **Да:** три прогона подряд на одном коммите 425c901, оба уровня API, см. «Результаты по уровням». Остаточный риск — редкий крэш Compose при уничтожении активности, см. «Стабильность эмулятора» |
+| 2 | Один owner/UserSession: навигация, поворот, две ViewModel, process death; новый профиль на активацию; повтор подготовки сохраняет deviceId и ключи | Эмулятор: `AuthEntryTest` (две ViewModel, recreate), `RecreateTest` (8× recreate с клавиатурой, «смерть процесса»), `RotationTest` (8 поворотов: тот же владелец и deviceId), `LiveLoginUiTest`, `LiveChatTest`. «Смерть процесса» — это новый владелец над теми же SQLCipher/Keystore; настоящий kill процесса не выполнялся. Повтор после потерянной публикации проверен; прерывание до создания ключей покрыто только кодом и прежними JVM-тестами |
 | 3 | Fake SMS; 60 с и Retry-After; неверный, истёкший, исчерпанный код; PIN_REQUIRED/PIN_LOCKED; PIN; logout; перенос с отзывом | Эмулятор + настоящий API: всё перечисленное |
 | 4 | Секреты не в SavedState, Intent, clipboard, логах, скриншотах | `FLAG_SECURE`; код не переживает recreate; logcat и clipboard проверены тестом. Intent с секретами в коде нет (обзор кода, отдельного теста нет). Скопировать можно только публичный `challengeId` и публичный запрос старого операторского режима |
 | 5 | Текст в обе стороны, офлайн, потеря send/ACK, без дублей, перезапуск, refresh, отзыв; смена identity не молча | Эмулятор + настоящий API. Refresh проверен при перезапуске (нет access token в памяти), истечение 15-минутного токена в работающем процессе не ждали. Подтверждения нового устройства собеседника **нет**: переписка с перенесённым аккаунтом остаётся остановленной |
@@ -232,6 +254,7 @@ Workflow `Android emulator instrumentation` на `e1145f5` ([run 40193169280](ht
    На Android 8 отдельно отметить: видна ли кнопка под полем, пока открыта клавиатура, и срабатывает ли нажатие с первого раза. На эмуляторе Android 8 клавиатура забирала касание у кнопки.
 7. Появляются «Аккаунт создан», UUID аккаунта, блок PIN и чат. Если видна кнопка «Завершить подключение», нажать её и записать текст ошибки.
 8. Установить PIN (6 цифр, не простой) → «PIN сохранён».
+   Отметить, не стирается ли PIN, если начать вводить его сразу после появления блока PIN: на эмуляторе поле однажды очистилось само.
 
 ### 3. Переписка
 
