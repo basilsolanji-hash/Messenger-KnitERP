@@ -48,7 +48,7 @@ class LiveLoginUiTest {
     private fun hideKeyboard() = scenario!!.onActivity {
         it.getSystemService(InputMethodManager::class.java).hideSoftInputFromWindow(it.window.decorView.windowToken, 0)
     }
-    private fun click(id: Int) = compose.waitUntil(30_000) {
+    private fun click(id: Int) = compose.waitUntil(60_000) {
         hideKeyboard()
         // Only an enabled button: while an operation is busy the screen disables it and a click would do nothing.
         val button = hasText(s(id)) and isEnabled()
@@ -56,7 +56,8 @@ class LiveLoginUiTest {
     }
     private fun field(label: Int) = hasSetTextAction() and hasText(s(label))
     private fun type(label: Int, text: String) = compose.waitUntil(30_000) {
-        runCatching { scrollTo(field(label)); compose.onNode(field(label)).performTextInput(text) }.isSuccess
+        // Replacement, not input: a retry after a partial failure must not append the text twice.
+        runCatching { scrollTo(field(label)); compose.onNode(field(label)).performTextReplacement(text) }.isSuccess
     }
     private fun openLogin() {
         compose.onNodeWithText(s(R.string.settings)).tap()

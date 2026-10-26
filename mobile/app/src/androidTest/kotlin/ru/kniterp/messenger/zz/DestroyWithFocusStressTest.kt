@@ -13,7 +13,7 @@ import ru.kniterp.messenger.MainActivity
 import ru.kniterp.messenger.tap
 
 /**
- * Reproduction for the crash on activity destroy (Compose "Must run runDetachLifecycle() …" / SlotTable index):
+ * Attempted reproduction of the rare crash on activity destroy (Compose "Must run runDetachLifecycle() …" / SlotTable index):
  * open a screen whose lazy list holds a focused text field with the keyboard up, then destroy the activity.
  * Last in the run because a crash ends the process.
  */
@@ -24,7 +24,7 @@ class DestroyWithFocusStressTest {
 
     @After fun stop() { scenario?.close() }
 
-    private fun cycles(screen: String, field: String) = repeat(20) { round ->
+    private fun cycles(screen: String) = repeat(20) { round ->
         Log.i("RecreateDiag", "destroy-with-focus $screen round $round")
         val activity = ActivityScenario.launch(MainActivity::class.java).also { scenario = it }
         compose.waitUntil(60_000) {
@@ -34,13 +34,14 @@ class DestroyWithFocusStressTest {
                 compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(screen))
                 compose.onNodeWithText(screen).tap()
             }
-            compose.onAllNodes(hasSetTextAction() and hasText(field)).fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNode(hasSetTextAction() and hasText(field)).performTextReplacement("Synthetic $round")
+        // Any field of the screen: which step the login screen shows depends on earlier tests.
+        compose.onAllNodes(hasSetTextAction())[0].performTextReplacement("Synthetic $round")
         activity.close() // Destroy with focus and keyboard.
         scenario = null
     }
 
-    @Test fun a_networkScreen() = cycles("Закрытый тест сервера", "Тестовое имя")
-    @Test fun b_loginScreen() = cycles("Вход по номеру телефона", "Номер телефона")
+    @Test fun a_networkScreen() = cycles("Закрытый тест сервера")
+    @Test fun b_loginScreen() = cycles("Вход по номеру телефона")
 }

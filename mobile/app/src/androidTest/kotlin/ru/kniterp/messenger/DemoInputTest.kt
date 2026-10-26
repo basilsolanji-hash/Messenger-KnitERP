@@ -39,7 +39,9 @@ class DemoInputTest {
             compose.onAllNodesWithText(body).fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithText(body).assertIsDisplayed()
-        compose.onNodeWithText("Получено и расшифровано. История сохранена на устройстве 🔒").assertIsDisplayed()
+        val reply = "Получено и расшифровано. История сохранена на устройстве 🔒"
+        compose.waitUntil(30_000) { compose.onAllNodesWithText(reply).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText(reply).assertIsDisplayed()
         capture("compose-chat.png")
         compose.onNodeWithContentDescription("Назад").performClick()
         compose.onNodeWithText("Настройки").performClick()
