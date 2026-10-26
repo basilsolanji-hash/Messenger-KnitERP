@@ -66,8 +66,14 @@ class LiveLoginUiTest {
     }.getOrElse { "unavailable: $it" }.take(6000)
     private fun field(label: Int) = hasSetTextAction() and hasText(s(label))
     private fun type(label: Int, text: String) = compose.waitUntil(30_000) {
-        // Replacement, not input: a retry after a partial failure must not append the text twice.
-        runCatching { scrollTo(field(label)); compose.onNode(field(label)).performTextReplacement(text) }.isSuccess
+        // Replacement, not input: a retry after a partial failure must not append the text twice. The value is read
+        // back because the screen clears code/PIN fields when the login state changes (seen right after activation).
+        runCatching {
+            scrollTo(field(label)); compose.onNode(field(label)).performTextReplacement(text)
+            compose.waitForIdle()
+            val now = compose.onNode(field(label)).fetchSemanticsNode().config[SemanticsProperties.EditableText].text
+            check(now.length == text.length) { "field holds ${now.length} chars" }
+        }.isSuccess
     }
     private fun openLogin() {
         compose.onNodeWithText(s(R.string.settings)).tap()
