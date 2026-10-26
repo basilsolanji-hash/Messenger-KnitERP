@@ -50,7 +50,7 @@ class AuthEntryTest {
         compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(context.getString(R.string.auth_country_uz)))
         compose.activityRule.scenario.recreate()
         compose.waitUntil(30_000) { compose.onAllNodesWithText(context.getString(R.string.settings)).fetchSemanticsNodes().isNotEmpty() }
-        // Captured after, not right before, recreate(): see CaptureRecreateExperimentTest.
+        // Captured after recreate(); a capture right before it was tested (60 cycles) and did not cause the crash.
         File(context.cacheDir, "os-auth-entry.png").outputStream().use {
             check(compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it))
         }
