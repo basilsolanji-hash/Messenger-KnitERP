@@ -19,12 +19,20 @@ interface MessageApi {
     fun inbox(cursor: String?): InboxPage
     fun ack(request: AckRequest)
 }
-data class DeliveryReport(val accepted: Int, val received: Int, val rejectedSequences: List<Long>)
+/** [heldIds]: outgoing messages held after a refusal (see [Delivery]); they stay pending with the same ciphertext. */
+data class DeliveryReport(val accepted: Int, val received: Int, val rejectedSequences: List<Long>,
+                          val heldIds: List<String> = emptyList())
 
 /** Network calls never hold a database transaction. A cursor is NOT persisted:
  * unacknowledged messages must be retried after a crash. Each instance is serialized.
  */
-class Delivery(private val vault: Vault, private val api: MessageApi) {
+private const val HELD = "delivery-held"
+
+class Delivery(private val vault: Vault, private val api: MessageApi,
+               /** True for a send refusal that a retry cannot fix (the recipient moved to another device). Such a
+                * message is held durably and not sent again; the inbox and other outgoing messages still flow.
+                * Re-encrypting it for a confirmed new device is not implemented. */
+               private val held: (Exception) -> Boolean = { false }) {
     val signal = SignalClient(vault)
     @Synchronized fun establish(peer: String) {
         Wire.id(peer)
@@ -39,11 +47,21 @@ class Delivery(private val vault: Vault, private val api: MessageApi) {
         establish(peer)
         return signal.prepare(peer, text, id)
     }
+    /** Outgoing messages held after a refusal; they are never resent automatically. */
+    fun heldIds(): Set<String> = vault.transaction { it.keys(HELD).toSet() }
+
     @Synchronized fun synchronize(maxPages: Int = 10, maxOutgoing: Int = 100): DeliveryReport {
         require(maxPages in 1..100 && maxOutgoing in 1..100)
         var accepted = 0
-        for (message in signal.pending(maxOutgoing)) {
-            val response = api.send(message)
+        val parked = heldIds()
+        val heldIds = signal.pendingIds().filter { it in parked }.toMutableList()
+        for (message in signal.pending().filterNot { it.clientMessageId in parked }.take(maxOutgoing)) {
+            val response = try { api.send(message) } catch (failure: Exception) {
+                if (!held(failure)) throw failure
+                vault.transaction { it.put(HELD, message.clientMessageId, byteArrayOf(1)) }
+                heldIds += message.clientMessageId
+                continue
+            }
             require(response.clientMessageId == message.clientMessageId && response.sequence > 0) { "Invalid acceptance" }
             signal.accepted(message.clientMessageId)
             accepted++
@@ -56,7 +74,7 @@ class Delivery(private val vault: Vault, private val api: MessageApi) {
         repeat(maxPages) {
             val page = api.inbox(cursor)
             require(page.items.size <= 100 && page.items.all { it.sequence > 0 && sequences.add(it.sequence) }) { "Invalid inbox page" }
-            if (page.items.isEmpty()) return DeliveryReport(accepted, received, rejected)
+            if (page.items.isEmpty()) return DeliveryReport(accepted, received, rejected, heldIds)
             val committed = mutableListOf<Long>()
             for (item in page.items) {
                 try { signal.receive(item) }
@@ -71,10 +89,10 @@ class Delivery(private val vault: Vault, private val api: MessageApi) {
                 received++
             }
             if (committed.isNotEmpty()) api.ack(AckRequest(committed))
-            val next = page.nextCursor ?: return DeliveryReport(accepted, received, rejected)
+            val next = page.nextCursor ?: return DeliveryReport(accepted, received, rejected, heldIds)
             require(next.length <= 8192 && visited.add(next)) { "Invalid inbox cursor" }
             cursor = next
         }
-        return DeliveryReport(accepted, received, rejected)
+        return DeliveryReport(accepted, received, rejected, heldIds)
     }
 }

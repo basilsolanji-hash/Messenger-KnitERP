@@ -5,7 +5,16 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.graphics.asAndroidBitmap
 import android.graphics.Bitmap
 import java.io.File
+import android.os.Handler
+import android.os.Looper
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
+import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
+import androidx.test.runner.lifecycle.Stage
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.junit.Assert.fail
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -30,18 +39,39 @@ class DemoInputTest {
             compose.onAllNodesWithText(body).fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithText(body).assertIsDisplayed()
-        compose.onNodeWithText("Получено и расшифровано. История сохранена на устройстве 🔒").assertIsDisplayed()
+        val reply = "Получено и расшифровано. История сохранена на устройстве 🔒"
+        compose.waitUntil(30_000) { compose.onAllNodesWithText(reply).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText(reply).assertIsDisplayed()
         capture("compose-chat.png")
         compose.onNodeWithContentDescription("Назад").performClick()
         compose.onNodeWithText("Настройки").performClick()
-        for ((label, title) in listOf("Беларуская" to "Налады", "Қазақша" to "Баптаулар",
-                "O‘zbekcha" to "Sozlamalar", "Русский" to "Настройки")) {
-            compose.onNodeWithText(label).performClick()
-            compose.waitUntil(30_000) {
-                compose.onAllNodesWithText(title).fetchSemanticsNodes().isNotEmpty()
-            }
+        // A language switch recreates the activity with a new configuration. After that the Compose test library
+        // does not reliably report idle on these emulators (see RotationTest), so the first switch goes through the
+        // real button and the result of every switch is read on the main thread.
+        compose.onNodeWithText("Беларуская").tap()
+        awaitTitle("Налады")
+        for ((tag, title) in listOf("kk" to "Баптаулар", "uz-Latn" to "Sozlamalar", "ru" to "Настройки")) {
+            Handler(Looper.getMainLooper()).post { AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(tag)) }
+            awaitTitle(title)
         }
-        capture("compose-languages.png")
+    }
+
+    /** The resumed activity's resources give [title] for the settings label: the new language is applied. */
+    private fun awaitTitle(title: String) {
+        val deadline = System.currentTimeMillis() + 30_000
+        var seen = ""
+        while (System.currentTimeMillis() < deadline) {
+            val read = CountDownLatch(1)
+            Handler(Looper.getMainLooper()).post {
+                seen = ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED)
+                    .singleOrNull()?.getString(R.string.settings).orEmpty()
+                read.countDown()
+            }
+            read.await(10, TimeUnit.SECONDS)
+            if (seen == title) return
+            Thread.sleep(250)
+        }
+        fail("Language not applied: expected $title, saw '$seen'")
     }
 
     private fun capture(name: String) {

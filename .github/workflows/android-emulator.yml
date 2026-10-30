@@ -10,7 +10,7 @@ permissions:
 jobs:
   instrumentation:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
@@ -19,8 +19,31 @@ jobs:
             target: google_apis
           - api-level: 36
             target: google_apis
+    # Disposable database for the live API used by the Live* instrumentation tests; never deployed or reused.
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: messenger
+          POSTGRES_DB: messenger_android_live
+          POSTGRES_PASSWORD: ci-ephemeral-only
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U messenger -d messenger_android_live"
+          --health-interval 3s --health-timeout 3s --health-retries 20
+    env:
+      IMAGE: system-images;android-${{ matrix.api-level }};${{ matrix.target }};x86_64
+      LOGS: ${{ github.workspace }}/mobile/app/build/outputs/ci-logs
+      ANDROID_AVD_HOME: ${{ github.workspace }}/.avd
     steps:
       - uses: actions/checkout@v4
+      # Release sources must not be able to replace the TLS trust root (debug/androidTest only).
+      - name: Release has no trust override
+        run: |
+          f=mobile/app/src/release/kotlin/ru/kniterp/messenger/TestSeams.kt
+          grep -q 'val trust: X509TrustManager? get() = null' "$f"
+          ! grep -Eq '\bvar\b|set\(' "$f"
+          ! grep -rnE 'TestSeams\.trust *=' mobile/app/src/main mobile/app/src/release
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -34,25 +57,207 @@ jobs:
         with:
           packages: platform-tools
           log-accepted-android-sdk-licenses: false
-      - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0' emulator "$IMAGE"
       - uses: gradle/actions/setup-gradle@v4
       # Build before booting the emulator so its startup time does not count against compilation.
-      - run: ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest
+      - run: |
+          mkdir -p "$LOGS"
+          set -o pipefail
+          ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest 2>&1 | tee "$LOGS/build.txt"
         working-directory: mobile
-      # Real Keystore, Room/SQLCipher and libsignal JNI on x86_64; no stubbed core.
-      - uses: reactivecircus/android-emulator-runner@v2
+      - uses: actions/setup-dotnet@v4
         with:
-          api-level: ${{ matrix.api-level }}
-          target: ${{ matrix.target }}
-          arch: x86_64
-          ram-size: 4096M
-          disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
-          working-directory: mobile
-          script: |
-            adb shell getprop ro.build.version.release
-            adb shell getprop ro.build.version.sdk
-            ./gradlew :app:connectedDebugAndroidTest
+          global-json-file: global.json
+      - run: dotnet restore server/Messenger.Api --locked-mode && dotnet build server/Messenger.Api -c Release --no-restore
+      # Real API (Development, Fake SMS, operator endpoint) behind HTTPS with a CI-only CA and two SPKI pins.
+      # The emulator reaches it as https://localhost:8443/ through adb reverse; the app checks CA, hostname and pins.
+      # The operator key goes to the test process as an instrumentation argument, never into an APK.
+      - name: Start live API
+        run: |
+          set -euo pipefail
+          live="$RUNNER_TEMP/live"; mkdir -p "$live"; cd "$live"
+          openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -keyout ca.key -out ca.pem -days 2 \
+            -subj "/CN=Messenger CI root" -addext "basicConstraints=critical,CA:TRUE" -addext "keyUsage=critical,keyCertSign,cRLSign" 2>/dev/null
+          openssl req -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -keyout leaf.key -out leaf.csr -subj "/CN=localhost" 2>/dev/null
+          printf 'subjectAltName=DNS:localhost\nextendedKeyUsage=serverAuth\nkeyUsage=critical,digitalSignature\nbasicConstraints=CA:FALSE\n' > leaf.ext
+          openssl x509 -req -in leaf.csr -CA ca.pem -CAkey ca.key -CAcreateserial -out leaf.pem -days 2 -extfile leaf.ext 2>/dev/null
+          openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out backup.key
+          pin() { openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | base64; }
+          pins="sha256/$(openssl x509 -in leaf.pem -pubkey -noout | pin),sha256/$(openssl pkey -in backup.key -pubout | pin)"
+          key=$(openssl rand -hex 32); echo "::add-mask::$key"
+          cat > front.py <<'PY'
+          import asyncio, ssl, sys
+          tls = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER); tls.minimum_version = ssl.TLSVersion.TLSv1_2
+          tls.load_cert_chain(sys.argv[1], sys.argv[2])
+          async def pipe(reader, writer):
+              try:
+                  while data := await reader.read(65536):
+                      writer.write(data); await writer.drain()
+              except (ConnectionError, ssl.SSLError):
+                  pass
+              finally:
+                  writer.close()
+          async def handle(reader, writer):
+              upstream = await asyncio.open_connection('127.0.0.1', 5080)
+              await asyncio.gather(pipe(reader, upstream[1]), pipe(upstream[0], writer))
+          async def main():
+              server = await asyncio.start_server(handle, '127.0.0.1', 8443, ssl=tls)
+              async with server: await server.serve_forever()
+          asyncio.run(main())
+          PY
+          root="$GITHUB_WORKSPACE/server/Messenger.Api/bin/Release/net10.0"
+          r() { openssl rand -base64 32; }
+          env ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://127.0.0.1:5080 ASPNETCORE_CONTENTROOT="$root" \
+            ConnectionStrings__Messenger='Host=127.0.0.1;Port=5432;Database=messenger_android_live;Username=messenger;Password=ci-ephemeral-only' \
+            Dev__AutoMigrate=true Dev__EnableOperatorEndpoints=true Dev__ProvisioningKey="$key" Dev__DataProtectionPath="$live/protection" \
+            Auth__SigningKey="$(r)" Auth__PhoneIndexKey="$(r)" Auth__SmsCodeKey="$(r)" Auth__PinPepper="$(r)" Auth__Sms__Provider=Fake \
+            Auth__Sms__Limits__IpPer10Minutes=200 Auth__Sms__Limits__IpPerDay=500 Auth__Sms__Limits__NetworkPer10Minutes=200 \
+            nohup dotnet "$root/Messenger.Api.dll" > "$LOGS/api.txt" 2>&1 &
+          nohup python3 front.py leaf.pem leaf.key > "$LOGS/front.txt" 2>&1 &
+          timeout 90 bash -c 'until curl -sf --cacert ca.pem https://localhost:8443/health/ready > /dev/null; do sleep 1; done'
+          { echo "LIVE_ORIGIN=https://localhost:8443/"; echo "LIVE_PINS=$pins"
+            echo "LIVE_CA=$(openssl x509 -in ca.pem -outform der | base64 -w0)"; echo "LIVE_KEY=$key"; } >> "$GITHUB_ENV"
+      # Explicit steps instead of a wrapper action: every boot and test line lands in files that the failure step annotates.
+      # Real Keystore, Room/SQLCipher and libsignal JNI on x86_64; no stubbed core.
+      - name: Boot emulator
+        run: |
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo no | avdmanager create avd --force -n ci -k "$IMAGE" > "$LOGS/avd.txt" 2>&1
+          "$ANDROID_HOME/emulator/emulator" -list-avds >> "$LOGS/avd.txt" 2>&1
+          nohup "$ANDROID_HOME/emulator/emulator" -avd ci -no-window -gpu swiftshader_indirect -no-snapshot -noaudio \
+            -no-boot-anim -memory 4096 -camera-back none -camera-front none > "$LOGS/emulator.txt" 2>&1 &
+          timeout 120 adb wait-for-device
+          timeout 600 bash -c 'until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = 1 ]; do sleep 5; done'
+          for key in window_animation_scale transition_animation_scale animator_duration_scale; do adb shell settings put global $key 0; done
+          adb shell input keyevent 82 || true
+          echo "Android $(adb shell getprop ro.build.version.release | tr -d '\r'), API $(adb shell getprop ro.build.version.sdk | tr -d '\r')" | tee "$LOGS/device.txt"
+      - name: Instrumentation tests
+        working-directory: mobile
+        run: |
+          # Root first (it restarts adbd, which would drop the reverse mapping): needed to pull thread dumps.
+          adb root > /dev/null 2>&1 || true; sleep 3; adb wait-for-device
+          adb logcat -c || echo "logcat -c failed" > "$LOGS/logcat-clear.txt"
+          adb reverse tcp:8443 tcp:8443
+          set -o pipefail
+          status=0
+          p=-Pandroid.testInstrumentationRunnerArguments
+          # Watchdog: a test running longer than 6 minutes gets every thread's stack through JDWP (debug build, no
+          # root needed); the app is suspended only for the dump.
+          dump() {
+            pid=$(adb shell pidof ru.kniterp.messenger.dev | tr -d '\r')
+            [ -z "$pid" ] && { echo "no app process" >> "$LOGS/watchdog.txt"; return; }
+            adb forward tcp:8700 "jdwp:$pid" >> "$LOGS/watchdog.txt" 2>&1
+            printf 'suspend\nwhere all\nresume\nquit\n' | timeout 90 jdb -attach localhost:8700 > "$1" 2>&1
+            adb forward --remove tcp:8700 > /dev/null 2>&1
+            echo "dumped $pid to $1 ($(wc -l < "$1") lines)" >> "$LOGS/watchdog.txt"
+          }
+          (
+            set +e
+            last=""; since=0; n=0
+            while sleep 30; do
+              cur=$(adb logcat -d -s TestRunner:I 2>/dev/null | grep 'started:' | tail -1 | sed 's/.*started: //')
+              if [ "$cur" != "$last" ]; then last=$cur; since=$(date +%s); echo "$(date +%T) $cur" >> "$LOGS/watchdog.txt"; continue; fi
+              if [ -n "$cur" ] && [ $(( $(date +%s) - since )) -ge 360 ] && [ "$n" -lt 2 ]; then
+                n=$((n+1)); echo "$(date +%T) stuck: $cur" >> "$LOGS/watchdog.txt"
+                adb shell dumpsys window | grep -E 'mCurrentFocus|mFocusedApp|mRotation=|mDisplayFrozen|mWindowsFreezing|mInputMethodWindow|mLastOrientation|mScreenOn|mAwake' >> "$LOGS/watchdog.txt" 2>&1
+                dump "$LOGS/jdb-$n.txt"; since=$(date +%s)
+              fi
+            done
+          ) &
+          watchdog=$!
+          # A hang must fail fast with evidence: 7 min per test (the longest live test waits ~5.5 min), 30 min in all.
+          timeout --signal=INT 30m ./gradlew :app:connectedDebugAndroidTest "$p.timeout_msec=420000" \
+            "$p.liveRequired=true" "$p.liveOrigin=$LIVE_ORIGIN" "$p.livePins=$LIVE_PINS" \
+            "$p.liveCa=$LIVE_CA" "$p.liveOperatorKey=$LIVE_KEY" 2>&1 | tee "$LOGS/gradle.txt" || status=$?
+          kill "$watchdog" 2>/dev/null || true
+          if [ "$status" != 0 ]; then
+            # Thread dump of the app process (if still alive) to show where it waits.
+            pid=$(adb shell pidof ru.kniterp.messenger.dev | tr -d '\r' || true)
+            if [ -n "$pid" ]; then adb shell kill -3 "$pid" || true; sleep 5; fi
+            adb root > /dev/null 2>&1 || true; sleep 2
+            mkdir -p "$LOGS/anr"; adb pull /data/anr "$LOGS/anr" > /dev/null 2>&1 || true
+          fi
+          adb logcat -d -v brief AndroidRuntime:E TestRunner:E System.err:W '*:S' > "$LOGS/logcat.txt" || true
+          adb logcat -d -v brief TestRunner:I RecreateDiag:I '*:S' > "$LOGS/runner.txt" || true
+          exit $status
+      # Logs and artifacts need blob storage; annotations stay readable through the public checks API.
+      - name: Annotate failures
+        if: failure()
+        working-directory: mobile
+        run: |
+          python3 - <<'PY'
+          import glob, os, xml.etree.ElementTree as ET
+          logs = os.environ['LOGS']
+          def note(title, text):
+              text = text.replace('%', '%25').replace('\r', '').replace('\n', '%0A')[:3500]
+              print(f"::error title={title}::{text}")
+          for path in glob.glob('app/build/outputs/androidTest-results/**/*.xml', recursive=True):
+              for case in ET.parse(path).getroot().iter('testcase'):
+                  for bad in list(case.findall('failure')) + list(case.findall('error')):
+                      note(f"{case.get('classname','').split('.')[-1]}.{case.get('name')}", (bad.text or bad.get('message') or '')[:3500])
+              print('results:', path)
+          def lines(name):
+              try:
+                  return [l for l in open(os.path.join(logs, name), errors='replace') if l.strip() and 'Seeding context' not in l and 'val in interceptor' not in l]
+              except FileNotFoundError:
+                  return []
+          for name, keep in [('device.txt', 5), ('emulator.txt', 15), ('api.txt', 30)]:
+              if lines(name): note(name, ''.join(lines(name)[-keep:])[-3500:])
+          build = [l for l in lines('build.txt') if l.startswith('e: ') or 'FAILED' in l or 'Execution failed' in l]
+          if build: note('build.txt', ''.join(build[:30])[:3500])
+          gradle = [l for l in lines('gradle.txt') if any(k in l for k in ('FAILED', 'Tests on', 'tests completed', 'Exception', 'Error', 'error:', 'e: '))]
+          if gradle: note('gradle.txt', ''.join(gradle[-40:])[-3500:])
+          # Exception and "failed:" lines from the test runner, without stack frames.
+          crash = [l for l in lines('logcat.txt') if '\tat ' not in l and '... ' not in l]
+          if crash: note('logcat.txt', ''.join(crash[:40])[:3500])
+          # Which test was running last, and where the app's threads wait (after kill -3).
+          runner = [l for l in lines('runner.txt') if ('started:' in l or 'finished:' in l or 'failed:' in l) and 'RecreateDiag' not in l]
+          if runner: note('runner.txt', ''.join(runner[-12:])[-3500:])
+          diag = [l for l in lines('runner.txt') if 'probe:' in l or 'stuck' in l]
+          if diag: note('probes', ''.join(diag[-30:])[-3500:])
+          for path in glob.glob(os.path.join(logs, 'anr', '**', '*'), recursive=True):
+              if not os.path.isfile(path): continue
+              text = open(path, errors='replace').read()
+              if path.endswith('test.txt'): continue
+              for title, thread in (('threads-main', '"main"'), ('threads-test', '"Instr: androidx.test.runner.AndroidJUnitRunner"')):
+                  at = text.find(thread)
+                  if at >= 0: note(title, os.path.relpath(path, logs) + '\n' + '\n'.join(text[at:].splitlines()[:45]))
+          if lines('watchdog.txt'): note('watchdog.txt', ''.join(lines('watchdog.txt')[-25:])[-3500:])
+          all_lines = lines('logcat.txt')
+          for i, l in enumerate(all_lines):
+              if 'FATAL EXCEPTION' in l:
+                  block = [x for x in all_lines[i:i + 120] if 'AndroidRuntime' in x]
+                  cause = next((j for j, x in enumerate(block) if 'Caused by' in x), 0)
+                  note('crash', ''.join(block[:4] + block[cause:cause + 40])[:3500])
+                  break
+          PY
+      # Separate step: GitHub keeps at most 10 error annotations per step.
+      - name: Annotate thread dumps
+        if: failure()
+        run: |
+          python3 - <<'PY'
+          import glob, os
+          logs = os.environ['LOGS']
+          def note(title, text):
+              text = text.replace('%', '%25').replace('\r', '').replace('\n', '%0A')[:3500]
+              print(f"::error title={title}::{text}")
+          for path in sorted(glob.glob(os.path.join(logs, 'jdb-*.txt'))):
+              blocks, name = {}, None
+              for line in open(path, errors='replace'):
+                  while line.startswith('> '): line = line[2:]  # jdb prompt before the thread name
+                  if line.strip() and not line.startswith((' ', '\t')) and line.rstrip().endswith(':'):
+                      name = line.strip()[:-1]; blocks[name] = []
+                  elif name is not None and line.strip():
+                      blocks[name].append(line.rstrip())
+              base = os.path.basename(path)
+              if not blocks: note('jdb ' + base, open(path, errors='replace').read()[:3500])
+              pick = [n for n in blocks if n == 'main' or n.startswith('Instr:')]
+              pick += [n for n in blocks if n not in pick and any('ru.kniterp' in l for l in blocks[n])][:3]
+              for n in pick: note(f'jdb {base} {n[:30]}'.replace(':', ''), n + '\n' + '\n'.join(blocks[n][:40]))
+          PY
+      - name: Stop emulator
+        if: always()
+        run: adb emu kill || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -60,4 +265,5 @@ jobs:
           path: |
             mobile/app/build/outputs/androidTest-results/
             mobile/app/build/reports/androidTests/
+            mobile/app/build/outputs/ci-logs/
           retention-days: 14

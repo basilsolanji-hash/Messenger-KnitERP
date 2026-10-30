@@ -48,6 +48,7 @@
     <string name="net_open">Chatni ochish</string>
     <string name="net_queued">Telefondagi navbatda</string>
     <string name="net_accepted">Server qabul qildi · o‘qilgani tasdiqlanmagan</string>
+    <string name="net_held">Yetkazilmadi: suhbatdosh qurilmasi o‘zgardi. Qayta yuborilmaydi.</string>
     <string name="net_safety">Shaxsiy ma’lumotlarni yuborishdan oldin ikkala telefondagi barcha 60 raqamni solishtiring.</string>
     <string name="net_rejected">Ayrim xabarlar tekshiruvdan o‘tmadi. Ular uchun tasdiq yuborilmadi.</string>
     <string name="net_identity_changed">Xavfsizlik kodi yoki qurilma o‘zgardi. Yuborish to‘xtatildi.</string>
@@ -73,6 +74,7 @@
     <string name="auth_resend">Kodni qayta yuborish</string>
     <string name="auth_resend_in">%1$d s dan so‘ng qayta yuborish</string>
     <string name="auth_change_number">Raqamni o‘zgartirish</string>
+    <string name="auth_operator_request">Test stendi operatori uchun so‘rov raqami (maxfiy emas):</string>
     <string name="auth_pin_title">Akkaunt PIN-kodi</string>
     <string name="auth_pin_no_recovery">Unutilgan PIN-ni tiklab bo‘lmaydi: qo‘llab-quvvatlash xizmati uni olib tashlay olmaydi.</string>
     <string name="auth_pin_hint">PIN — 6 ta raqam</string>

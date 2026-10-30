@@ -48,6 +48,7 @@
     <string name="net_open">Адкрыць чат</string>
     <string name="net_queued">У чарзе на тэлефоне</string>
     <string name="net_accepted">Прынята серверам · прачытанне не пацверджана</string>
+    <string name="net_held">Не дастаўлена: прылада суразмоўцы змянілася. Паўторна не адпраўляецца.</string>
     <string name="net_safety">Параўнайце ўсе 60 лічбаў на абодвух тэлефонах перад абменам асабістымі данымі.</string>
     <string name="net_rejected">Частка паведамленняў не прайшла праверку. Пацвярджэнні для іх не адпраўлены.</string>
     <string name="net_identity_changed">Код бяспекі ці прылада змяніліся. Адпраўка спынена.</string>
@@ -73,6 +74,7 @@
     <string name="auth_resend">Адправіць код зноў</string>
     <string name="auth_resend_in">Адправіць зноў праз %1$d с</string>
     <string name="auth_change_number">Змяніць нумар</string>
+    <string name="auth_operator_request">Нумар запыту для аператара тэставага стэнда (не сакрэт):</string>
     <string name="auth_pin_title">PIN-код акаўнта</string>
     <string name="auth_pin_no_recovery">Забыты PIN аднавіць нельга: падтрымка не можа яго зняць.</string>
     <string name="auth_pin_hint">PIN — 6 лічбаў</string>

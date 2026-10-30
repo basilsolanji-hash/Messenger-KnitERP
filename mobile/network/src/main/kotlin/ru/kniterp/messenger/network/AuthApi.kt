@@ -1,6 +1,7 @@
 package ru.kniterp.messenger.network
 
 import java.io.Closeable
+import javax.net.ssl.X509TrustManager
 import kotlinx.serialization.Serializable
 import okhttp3.HttpUrl
 import okhttp3.MediaType.Companion.toMediaType
@@ -41,7 +42,8 @@ import ru.kniterp.messenger.core.Wire
 /** Public auth endpoints. Anonymous calls never carry Authorization; the rest take the user session's tokens. */
 class AuthApi internal constructor(private val base: HttpUrl, private val client: OkHttpClient) : Closeable {
     companion object {
-        fun connect(server: ServerEndpoint): AuthApi = configured(server, OkHttpClient())
+        /** [trust] is for instrumentation against a CI-generated CA only; see [baseClient]. Production passes null. */
+        fun connect(server: ServerEndpoint, trust: X509TrustManager? = null): AuthApi = configured(server, baseClient(trust))
         internal fun configured(server: ServerEndpoint, baseClient: OkHttpClient) = AuthApi(server.url(), pinnedClient(server, baseClient))
     }
 

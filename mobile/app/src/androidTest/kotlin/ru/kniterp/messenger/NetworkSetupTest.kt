@@ -20,16 +20,23 @@ class NetworkSetupTest {
 
     @Test fun exportsOnlyPhonePublicEnrollmentAndRejectsCleartextEndpoint() {
         compose.waitUntil(60_000) { compose.onAllNodesWithText("Тестовый собеседник").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("Настройки").performClick()
+        compose.onNodeWithText("Настройки").tap()
         compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Закрытый тест сервера"))
-        compose.onNodeWithText("Закрытый тест сервера").performClick()
+        compose.onNodeWithText("Закрытый тест сервера").tap()
         compose.waitUntil(60_000) {
             compose.onAllNodesWithText("Создать публичный запрос").fetchSemanticsNodes().isNotEmpty() &&
                 compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNode(hasSetTextAction() and hasText("Тестовое имя")).performTextInput("Synthetic Android 26")
-        compose.onNodeWithText("Создать публичный запрос").performClick()
-        compose.waitUntil(30_000) { compose.onAllNodes(hasText("\"identityKey\"", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        // Click only once enabled and on screen: on Android 8 the open keyboard can cover the button.
+        val create = hasText("Создать публичный запрос") and isEnabled()
+        compose.waitUntil(30_000) { compose.onAllNodes(create).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(create)
+        compose.onNode(create).tap()
+        // The request appears below the button in a lazy list; with the keyboard open it may not be composed yet.
+        compose.waitUntil(30_000) {
+            runCatching { compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("\"identityKey\"", substring = true)) }.isSuccess
+        }
         val json = compose.onNode(hasText("\"identityKey\"", substring = true)).fetchSemanticsNode()
             .config[androidx.compose.ui.semantics.SemanticsProperties.Text].joinToString("") { it.text }
         val request = Wire.json.decodeFromString<EnrollmentRequest>(json)

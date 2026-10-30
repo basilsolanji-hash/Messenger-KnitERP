@@ -52,6 +52,34 @@ class PinnedApiTest {
         PinnedApi.connect(config).use { assertFailsWith<SSLException> { it.me() } }
         assertEquals(0, server.requestCount)
     }
+    /** The instrumentation trust seam replaces roots only: pins and hostname verification still decide. */
+    @Test fun testTrustAnchorKeepsPinsAndHostnameChecks() {
+        val root = HeldCertificate.Builder().certificateAuthority(0).build()
+        val trust = HandshakeCertificates.Builder().addTrustedCertificate(root.certificate).build().trustManager
+        val tokens = object : AccessTokens { override fun current() = token; override fun rejected(token: String) = false }
+        val backup = CertificatePinner.pin(HeldCertificate.Builder().build().certificate)
+        val ip = HeldCertificate.Builder().addSubjectAlternativeName("127.0.0.1").signedBy(root).build()
+        val named = HeldCertificate.Builder().addSubjectAlternativeName("localhost").signedBy(root).build()
+        MockWebServer().use { good -> MockWebServer().use { misnamed ->
+            good.useHttps(HandshakeCertificates.Builder().heldCertificate(ip, root.certificate).build().sslSocketFactory())
+            misnamed.useHttps(HandshakeCertificates.Builder().heldCertificate(named, root.certificate).build().sslSocketFactory())
+            good.start(java.net.InetAddress.getByName("127.0.0.1"), 0)
+            misnamed.start(java.net.InetAddress.getByName("127.0.0.1"), 0)
+            fun origin(server: MockWebServer) = "https://127.0.0.1:${server.port}/"
+            val pinned = ServerEndpoint(origin(good), listOf(CertificatePinner.pin(ip.certificate), backup))
+            val me = identity(); good.enqueue(MockResponse.Builder().code(200).body(Wire.json.encodeToString(me)).build())
+            PinnedApi.session(pinned, tokens, trust).use { assertEquals(me, it.me()) }
+            val unpinned = pinned.copy(pins = listOf(CertificatePinner.pin(HeldCertificate.Builder().build().certificate), backup))
+            PinnedApi.session(unpinned, tokens, trust).use { assertFailsWith<SSLException> { it.me() } }
+            AuthApi.connect(unpinned, trust).use { assertFailsWith<SSLException> { it.refreshChallenge(UUID.randomUUID().toString()) } }
+            PinnedApi.session(pinned, tokens).use { assertFailsWith<SSLException> { it.me() } } // No seam: platform roots.
+            // Pinned and CA-signed, but issued for another name: hostname verification still refuses it.
+            val wrongName = ServerEndpoint(origin(misnamed), listOf(CertificatePinner.pin(named.certificate), backup))
+            PinnedApi.session(wrongName, tokens, trust).use { assertFailsWith<SSLException> { it.me() } }
+            assertEquals(1, good.requestCount)
+            assertEquals(0, misnamed.requestCount)
+        } }
+    }
     @Test fun redirectsCannotSendTokenToAnotherOrigin() = fixture { server, config, base ->
         MockWebServer().use { destination ->
             destination.start()
