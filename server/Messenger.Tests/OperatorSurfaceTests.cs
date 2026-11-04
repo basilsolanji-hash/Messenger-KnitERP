@@ -55,6 +55,33 @@ public sealed class OperatorSurfaceTests
         Assert.Equal(0, host.Database.Attempts);
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("false")]
+    [InlineData("true")]
+    public async Task PanelPageExistsOnlyWithOperatorSurfaceAndCarriesNoDataOrSecrets(string? enabled)
+    {
+        await using var host = new SurfaceHost(enabled);
+        using var client = host.CreateClient();
+        foreach (var path in new[] { "/api/v1/dev/panel", "/api/v1/dev/panel.js" })
+        {
+            using var response = await client.GetAsync(path);
+            if (enabled != "true") { Assert.Equal(HttpStatusCode.NotFound, response.StatusCode); continue; }
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+            var csp = string.Join(";", response.Headers.GetValues("Content-Security-Policy"));
+            Assert.Contains("default-src 'none'", csp);
+            Assert.Contains("script-src 'self'", csp);
+            Assert.Contains("frame-ancestors 'none'", csp);
+            Assert.Equal("DENY", string.Join("", response.Headers.GetValues("X-Frame-Options")));
+            var body = await response.Content.ReadAsStringAsync();
+            Assert.DoesNotContain(SurfaceHost.OperatorKey, body);
+            Assert.DoesNotContain("innerHTML", body);
+            Assert.DoesNotContain("localStorage", body);
+        }
+        Assert.Equal(0, host.Database.Attempts);
+    }
+
     [Fact]
     public async Task EnabledRealProviderNeverMapsFakeCodeReader()
     {
@@ -117,7 +144,11 @@ public sealed class OperatorSurfaceTests
         "/api/v1/dev/accounts",
         "/api/v1/dev/accounts/00000000-0000-0000-0000-000000000001/replace-device",
         "/api/v1/dev/accounts/00000000-0000-0000-0000-000000000001/session",
-        "/api/v1/dev/sms/code"
+        "/api/v1/dev/sms/code",
+        "/api/v1/dev/panel/status",
+        "/api/v1/dev/panel/devices",
+        "/api/v1/dev/panel/devices/00000000-0000-0000-0000-000000000001/revoke",
+        "/api/v1/dev/panel/sessions/revoke-all"
     ];
 
     private static HttpRequestMessage Request(string path) => new(HttpMethod.Post, path)

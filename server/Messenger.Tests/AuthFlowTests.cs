@@ -675,4 +675,51 @@ public sealed class AuthFlowTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.NotFound, (await real.CreateClient().SendAsync(probe)).StatusCode);
         Assert.Equal(0, real.Network.Calls);
     }
+    [Fact, Trait("Category", "PostgreSQL")]
+    public async Task OperatorPanelListsDevicesAndRevokesOneOrAllSessionsWithoutSecrets()
+    {
+        using var aliceDevice = new TestDevice();
+        using var bobDevice = new TestDevice();
+        var alice = await Register(aliceDevice, RuPhone());
+        var bob = await Register(bobDevice, RuPhone());
+        async Task<HttpResponseMessage> Panel(string path, string? key = null)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = JsonContent.Create(new { }) };
+            request.Headers.Add("X-Dev-Provisioning-Token", key ?? AuthHost.Secrets["Dev:ProvisioningKey"]);
+            return await a.SendAsync(request);
+        }
+        Assert.Equal(HttpStatusCode.Unauthorized, (await Panel("/api/v1/dev/panel/devices", "wrong")).StatusCode);
+
+        var listed = await Panel("/api/v1/dev/panel/devices");
+        Assert.Equal("no-store", listed.Headers.CacheControl?.ToString());
+        var text = await listed.Content.ReadAsStringAsync();
+        foreach (var secret in new[] { alice.AccessToken, alice.RefreshToken, bob.AccessToken, bob.RefreshToken })
+            Assert.DoesNotContain(secret, text);
+        var rows = System.Text.Json.JsonSerializer.Deserialize<List<OperatorPanel.DeviceRow>>(text, Json)!;
+        var aliceRow = rows.Single(x => x.DeviceId == aliceDevice.Id);
+        Assert.True(aliceRow.Active);
+        Assert.Equal("sms", aliceRow.Kind);
+        Assert.Equal(alice.AccountId, aliceRow.AccountId);
+        Assert.Equal(1, aliceRow.LiveSessions);
+
+        var status = await Ok<OperatorPanel.Status>(await Panel("/api/v1/dev/panel/status"));
+        Assert.True(status.Ready);
+        Assert.True(status.ActiveDevices >= 2 && status.LiveSessions >= 2);
+
+        Assert.Equal(HttpStatusCode.NotFound, (await Panel($"/api/v1/dev/panel/devices/{Guid.NewGuid()}/revoke")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, await Me(alice.AccessToken));
+        var revoked = await Ok<OperatorPanel.Revoked>(await Panel($"/api/v1/dev/panel/devices/{aliceDevice.Id}/revoke"));
+        Assert.Equal(1, revoked.Sessions);
+        Assert.Equal(HttpStatusCode.Unauthorized, await Me(alice.AccessToken));
+        await Fails(await Refresh(aliceDevice, alice, alice.RefreshToken), "SESSION_REVOKED");
+        Assert.Equal(HttpStatusCode.OK, await Me(bob.AccessToken));
+        Assert.Contains(first.Logs.Lines.Concat(second.Logs.Lines), l => l.Contains("Operator action revoke-device") && l.Contains(aliceDevice.Id.ToString()));
+
+        var all = await Ok<OperatorPanel.Revoked>(await Panel("/api/v1/dev/panel/sessions/revoke-all"));
+        Assert.True(all.Sessions >= 1);
+        await Fails(await Refresh(bobDevice, bob, bob.RefreshToken), "SESSION_REVOKED");
+        await using var db = database.Open();
+        Assert.False(await db.Devices.Where(x => x.Id == aliceDevice.Id).Select(x => x.Active).SingleAsync());
+        Assert.False(await db.RefreshFamilies.AnyAsync(x => x.RevokedAt == null));
+    }
 }

@@ -24,6 +24,18 @@ foreach ($f in 'check-external.ps1','sms-limit-probe.ps1','move-backup-key.ps1')
 scp -i "$HOME\.ssh\os_vps" root@155.212.217.23:/etc/os-communications-https-v1/server-endpoint.json .
 ```
 
+## Операторская панель (браузер оператора)
+
+Вместо ручных запросов и SQL-скриптов оператор может открыть `https://chat.kniterp.online/api/v1/dev/panel` с адреса из списка операторов. Панель работает только при `Dev__EnableOperatorEndpoints=true`, и для каждого действия нужен операторский ключ из `.env`. Ключ вводится на странице и хранится только в её памяти.
+
+Что умеет панель:
+- состояние стенда;
+- код Fake SMS по номеру запроса с экрана телефона;
+- список устройств с числом живых сессий;
+- отзыв одного устройства или всех сессий.
+
+Номеров телефонов, текста переписки и токенов в панели нет. Каждое действие пишется в журнал API строкой `Operator action`: `docker compose logs api | grep "Operator action"`. Скрипты `revoke-sessions.sh` и `operator-endpoints.sh` остаются запасным путём.
+
 ## 1. Убрать резервный TLS-ключ с сервера (Windows)
 
 ```powershell

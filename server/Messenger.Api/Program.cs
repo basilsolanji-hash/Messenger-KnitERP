@@ -167,6 +167,8 @@ if (enableOperatorEndpoints)
         return Results.Ok(access.Issue(account!, device!));
     });
 
+    OperatorPanel.Map(app);
+
     // Synthetic test stand only: reads a code the in-memory fake provider "sent". Not mapped with a real provider,
     // requires the operator key, and takes the challenge id in the body so no number or code appears in a URL.
     if (app.Services.GetService<FakeSms>() is { } fakeSms)
