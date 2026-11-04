@@ -39,6 +39,16 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - run: ./gradlew :core:test :network:test :app:assembleDebug :app:assembleDebugAndroidTest
         working-directory: mobile
+        env:
+          OS_VERSION_CODE: ${{ github.run_number }}0
+      # Build identity for the manual test: versionCode and SHA-256 of each APK, readable as check annotations.
+      - name: Record APK identity
+        run: |
+          cd mobile/app/build/outputs/apk/debug
+          sums=$(sha256sum *.apk)
+          echo "$sums"
+          echo "::notice title=APK versionCode ${{ github.run_number }}0, commit ${GITHUB_SHA::7}::$(echo "$sums" | tr '\n' ' ')"
+          { echo '### APK'; echo; echo "versionCode ${{ github.run_number }}0, commit $GITHUB_SHA"; echo; echo '```'; echo "$sums"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
       - run: dotnet restore server/Messenger.Api --locked-mode
       - run: dotnet build server/Messenger.Api -c Release --no-restore
       - run: python3 scripts/check-e2ee.py
@@ -63,4 +73,4 @@ jobs:
             mobile/app/build/outputs/apk/androidTest/debug/*.apk
             mobile/core/build/test-results/
             mobile/network/build/test-results/
-          retention-days: 14
+          retention-days: 30

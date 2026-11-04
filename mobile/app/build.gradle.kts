@@ -13,7 +13,8 @@ android {
         applicationId = "ru.kniterp.messenger.dev"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
+        // CI sets OS_VERSION_CODE from its run number, so every published build is distinguishable and upgradable.
+        versionCode = System.getenv("OS_VERSION_CODE")?.toIntOrNull()?.takeIf { it > 2 } ?: 2
         versionName = "0.2.0-dev"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
