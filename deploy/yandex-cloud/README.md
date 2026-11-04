@@ -26,6 +26,26 @@ VPS Beget не выключается, пока новый стенд не пр�
 
 Стоимость пользователь смотрит в калькуляторе Yandex Cloud до шага Я-5: VM, диск и статический IP оплачиваются, пока существуют. Этот runbook платные сервисы (WAF, Smart Web Security, Managed PostgreSQL) не включает.
 
+## Коротко: два скрипта вместо отдельных команд
+
+После `yc init` (шаги Я-1 и Я-2) шаги Я-3…Я-8 выполняют два скрипта.
+
+1. **Windows** (в каталоге со скриптом). Скрипт покажет план и спросит `YES` перед платными ресурсами. В конце ожидается `CREATE_OK … ip=IP_VM`.
+
+   ```powershell
+   curl.exe -fsSLO https://raw.githubusercontent.com/basilsolanji-hash/Messenger-KnitERP/claude/lead-2026-11-04/deploy/yandex-cloud/create.ps1; powershell -ExecutionPolicy Bypass -File .\create.ps1
+   ```
+
+2. **VM** (`ssh -i "$HOME\.ssh\os_vps" yc-user@IP_VM`). Первый запуск собирает образ API, это несколько минут. В конце ожидается `SETUP_VM_OK`.
+
+   ```bash
+   B=claude/lead-2026-11-04; curl -fsSL https://raw.githubusercontent.com/basilsolanji-hash/Messenger-KnitERP/$B/deploy/yandex-cloud/setup-vm.sh -o setup-vm.sh && sudo OS_BRANCH=$B bash setup-vm.sh
+   ```
+
+   После слияния ветки в `main` вместо `claude/lead-2026-11-04` указывается `main`.
+
+Дальше: DNS и сертификат (Я-9), HTTPS (Я-10), остальное (Я-11). Ниже те же шаги расписаны по одной команде на случай ошибки.
+
 ## Я-1. CLI (Windows)
 
 ```powershell
