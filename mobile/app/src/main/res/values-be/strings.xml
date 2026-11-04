@@ -121,4 +121,11 @@
     <string name="net_peer_unchanged">Прылада суразмоўцы не мянялася. Бягучы код бяспекі:</string>
     <string name="net_peer_accepted">Новая прылада пацверджана. Затрыманыя паведамленні пастаўлены ў чаргу адпраўкі.</string>
     <string name="net_bad_peer">Няправільны ID суразмоўцы. Патрэбны ID іншага акаўнта: 36 сімвалаў.</string>
+    <string name="requests_title">Запыты на перапіску</string>
+    <string name="requests_hint">Паведамленні ад незнаёмых акаўнтаў. Тэкст не паказваецца, пакуль вы не прымеце запыт.</string>
+    <string name="requests_count">Паведамленняў: %1$d</string>
+    <string name="request_accept">Прыняць</string>
+    <string name="request_block">Заблакіраваць</string>
+    <string name="request_block_confirm">Заблакіраваць акаўнт? Зняць блакіроўку ў гэтай версіі нельга.</string>
+    <string name="request_blocked">Акаўнт заблакіраваны. Паведамленні паміж вамі больш не дастаўляюцца.</string>
 </resources>

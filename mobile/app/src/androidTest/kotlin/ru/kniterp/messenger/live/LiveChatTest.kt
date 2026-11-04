@@ -88,6 +88,35 @@ class LiveChatTest {
         restarted.close(); b.close()
     }
 
+    @Test fun strangerIsAMessageRequestUntilAcceptedAndBlockStopsDeliveryOnTheServer() {
+        val a = Phone(); val stranger = Phone(); val spammer = Phone()
+        val aId = a.register(); val strangerId = stranger.register(); val spammerId = spammer.register()
+        stranger.open(aId); spammer.open(aId)
+        assertNull(stranger.send("Здравствуйте, это знакомый").error)
+        assertNull(spammer.send("Реклама").error)
+        val synced = a.sync()
+        assertNull(synced.error)
+        assertFalse(strangerId in synced.acceptedPeers)
+        assertFalse(spammerId in synced.acceptedPeers)
+        assertEquals(1, a.incoming(strangerId).size) // Stored and acknowledged; the screen shows only the count.
+
+        val accepted = a.act { acceptRequest(strangerId) }
+        assertNull(accepted.error)
+        assertTrue(strangerId in accepted.acceptedPeers)
+        assertEquals(strangerId, accepted.peer)
+
+        val blocked = a.act { blockPeer(spammerId) }
+        assertNull(blocked.error)
+        assertEquals(R.string.request_blocked, blocked.notice)
+        assertTrue(spammerId in blocked.blockedPeers)
+        assertFalse(spammerId in blocked.acceptedPeers)
+        // The server now refuses delivery from the blocked account; nothing new reaches the inbox.
+        assertNotNull(spammer.send("Ещё реклама").error)
+        a.sync()
+        assertEquals(listOf("Реклама"), a.incoming(spammerId))
+        a.close(); stranger.close(); spammer.close()
+    }
+
     @Test fun interruptedPublicationRetriesWithTheSameDeviceAndKeys() {
         val phone = Phone()
         phone.start(); phone.configure()

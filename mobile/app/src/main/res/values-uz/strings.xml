@@ -121,4 +121,11 @@
     <string name="net_peer_unchanged">Suhbatdoshning qurilmasi o‘zgarmagan. Joriy xavfsizlik kodi:</string>
     <string name="net_peer_accepted">Yangi qurilma tasdiqlandi. Ushlab turilgan xabarlar yuborish navbatiga qo‘yildi.</string>
     <string name="net_bad_peer">Suhbatdosh ID-si noto‘g‘ri. Boshqa akkaunt ID-si kerak: 36 ta belgi.</string>
+    <string name="requests_title">Yozishmaga so‘rovlar</string>
+    <string name="requests_hint">Notanish akkauntlardan kelgan xabarlar. So‘rovni qabul qilmaguningizcha matn ko‘rsatilmaydi.</string>
+    <string name="requests_count">Xabarlar: %1$d</string>
+    <string name="request_accept">Qabul qilish</string>
+    <string name="request_block">Bloklash</string>
+    <string name="request_block_confirm">Akkaunt bloklansinmi? Bu versiyada blokni olib tashlab bo‘lmaydi.</string>
+    <string name="request_blocked">Akkaunt bloklandi. O‘rtangizdagi xabarlar endi yetkazilmaydi.</string>
 </resources>

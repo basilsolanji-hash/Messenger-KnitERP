@@ -18,7 +18,10 @@ interface MessageApi {
     fun send(message: Outgoing): Accepted
     fun inbox(cursor: String?): InboxPage
     fun ack(request: AckRequest)
+    /** Server-side block of [request] for this account: no delivery in either direction afterwards. */
+    fun block(request: BlockRequest): Unit = throw UnsupportedOperationException("Blocking is not available")
 }
+@Serializable data class BlockRequest(val accountId: String)
 /** [heldIds]: outgoing messages held after a refusal (see [Delivery]); they stay pending with the same ciphertext. */
 data class DeliveryReport(val accepted: Int, val received: Int, val rejectedSequences: List<Long>,
                           val heldIds: List<String> = emptyList())
@@ -28,6 +31,8 @@ data class DeliveryReport(val accepted: Int, val received: Int, val rejectedSequ
  */
 private const val HELD = "delivery-held"
 private const val CHANGE_CLAIMS = "delivery-change-claims"
+private const val ACCEPTED = "peers-accepted"
+private const val BLOCKED = "peers-blocked"
 
 class Delivery(private val vault: Vault, private val api: MessageApi,
                /** True for a send refusal that a retry cannot fix (the recipient moved to another device). Such a
@@ -72,6 +77,25 @@ class Delivery(private val vault: Vault, private val api: MessageApi,
             r.read<String>(CHANGE_CLAIMS, peer) ?: UUID.randomUUID().toString().also { r.write(CHANGE_CLAIMS, peer, it) }
         }
         return api.claim(ClaimRequest(peer, claimId))
+    }
+
+    /**
+     * Message requests (PRODUCT_SPEC section 18): a peer's texts are shown only after this user opened the chat, wrote
+     * to the peer or accepted the request. Others stay hidden (stored encrypted, acknowledged, without preview).
+     */
+    fun acceptedPeers(): Set<String> = vault.transaction { it.keys(ACCEPTED).toSet() } +
+        signal.history().filter { it.outgoing }.map { it.peerAccountId }
+    fun blockedPeers(): Set<String> = vault.transaction { it.keys(BLOCKED).toSet() }
+    @Synchronized fun acceptPeer(peer: String) {
+        Wire.id(peer)
+        vault.transaction { r -> if (r.get(BLOCKED, peer) == null) r.put(ACCEPTED, peer, byteArrayOf(1)) }
+    }
+    /** Server block first; the local mark only after the server confirmed it. */
+    @Synchronized fun blockPeer(peer: String) {
+        Wire.id(peer)
+        require(peer != signal.localDevice().accountId)
+        api.block(BlockRequest(peer))
+        vault.transaction { r -> r.put(BLOCKED, peer, byteArrayOf(1)); r.delete(ACCEPTED, peer) }
     }
 
     /** Outgoing messages held after a refusal; they are never resent automatically. */

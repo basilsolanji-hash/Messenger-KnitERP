@@ -122,6 +122,7 @@ class PinnedApi internal constructor(
     override fun send(message: Outgoing): Accepted = Wire.json.decodeFromString(call("messages", Wire.json.encodeToString(message)))
     override fun inbox(cursor: String?): InboxPage = Wire.json.decodeFromString(call("inbox", cursor = cursor))
     override fun ack(request: AckRequest) { call("inbox/ack", Wire.json.encodeToString(request), true) }
+    override fun block(request: BlockRequest) { call("blocks", Wire.json.encodeToString(request), true) }
     private fun call(path: String, json: String? = null, empty: Boolean = false, cursor: String? = null): String {
         if (expiresAtMillis != null && clock() + 1000 >= expiresAtMillis) throw ExpiredSession()
         val url = base.newBuilder().addPathSegments("api/v1/$path").apply {

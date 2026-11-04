@@ -97,6 +97,7 @@ class FaultyApi(private val real: MessageApi) : MessageApi {
     override fun send(message: Outgoing) = call("send") { real.send(message) }
     override fun inbox(cursor: String?) = call("inbox") { real.inbox(cursor) }
     override fun ack(request: AckRequest) = call("ack") { real.ack(request) }
+    override fun block(request: BlockRequest) = call("block") { real.block(request) }
 }
 
 /** One synthetic phone: the production controller with its own registry, so several can share one emulator. */

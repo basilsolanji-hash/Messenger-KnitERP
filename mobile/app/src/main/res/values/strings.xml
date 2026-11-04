@@ -121,4 +121,11 @@
     <string name="net_peer_unchanged">Устройство собеседника не менялось. Текущий код безопасности:</string>
     <string name="net_peer_accepted">Новое устройство подтверждено. Удержанные сообщения поставлены в очередь отправки.</string>
     <string name="net_bad_peer">Неверный ID собеседника. Нужен ID другого аккаунта: 36 символов.</string>
+    <string name="requests_title">Запросы на переписку</string>
+    <string name="requests_hint">Сообщения от незнакомых аккаунтов. Текст не показывается, пока вы не примете запрос.</string>
+    <string name="requests_count">Сообщений: %1$d</string>
+    <string name="request_accept">Принять</string>
+    <string name="request_block">Заблокировать</string>
+    <string name="request_block_confirm">Заблокировать аккаунт? Снять блокировку в этой версии нельзя.</string>
+    <string name="request_blocked">Аккаунт заблокирован. Сообщения между вами больше не доставляются.</string>
 </resources>

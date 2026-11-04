@@ -121,4 +121,11 @@
     <string name="net_peer_unchanged">Әңгімелесушінің құрылғысы өзгермеген. Ағымдағы қауіпсіздік коды:</string>
     <string name="net_peer_accepted">Жаңа құрылғы расталды. Ұсталған хабарлар жіберу кезегіне қойылды.</string>
     <string name="net_bad_peer">Әңгімелесушінің ID-і қате. Басқа аккаунттың ID-і керек: 36 таңба.</string>
+    <string name="requests_title">Хат алмасуға сұраулар</string>
+    <string name="requests_hint">Бейтаныс аккаунттардан келген хабарлар. Сұрауды қабылдағанша мәтін көрсетілмейді.</string>
+    <string name="requests_count">Хабарлар: %1$d</string>
+    <string name="request_accept">Қабылдау</string>
+    <string name="request_block">Бұғаттау</string>
+    <string name="request_block_confirm">Аккаунтты бұғаттау керек пе? Бұл нұсқада бұғаттауды алып тастау мүмкін емес.</string>
+    <string name="request_blocked">Аккаунт бұғатталды. Сіздердің араңыздағы хабарлар енді жеткізілмейді.</string>
 </resources>

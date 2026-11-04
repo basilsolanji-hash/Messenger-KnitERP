@@ -36,6 +36,7 @@ import ru.kniterp.messenger.core.SignalClient
     var peer by remember { mutableStateOf("") }
     var draft by remember { mutableStateOf("") }
     var showSafety by remember { mutableStateOf(false) }
+    var blockTarget by remember { mutableStateOf<String?>(null) }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) { model.start() }
     LaunchedEffect(state.queuedId) { if (state.queuedId.isNotEmpty()) draft = "" }
@@ -157,8 +158,26 @@ import ru.kniterp.messenger.core.SignalClient
                 item { OutlinedTextField(peer, { if (it.length <= 36) peer = it.trim() }, label = { Text(stringResource(R.string.net_peer)) },
                     modifier = Modifier.fillMaxWidth(), singleLine = true, enabled = enabled) }
                 item { Button(onClick = { model.selectPeer(peer) }, enabled = enabled && peer.isNotBlank()) { Text(stringResource(R.string.net_open)) } }
-                items(state.messages.map { it.peerAccountId }.distinct(), key = { "peer:$it" }) { id ->
+                val peers = state.messages.map { it.peerAccountId }.distinct()
+                items(peers.filter { it in state.acceptedPeers }, key = { "peer:$it" }) { id ->
                     TextButton(onClick = { peer = id; model.selectPeer(id) }, enabled = enabled) { Text(id) }
+                }
+                // Message requests: who wrote and how many, never the text, until the user accepts.
+                val requests = peers.filter { it !in state.acceptedPeers && it !in state.blockedPeers }
+                if (requests.isNotEmpty()) {
+                    item { Text(stringResource(R.string.requests_title), style = MaterialTheme.typography.titleSmall) }
+                    item { Text(stringResource(R.string.requests_hint), style = MaterialTheme.typography.bodySmall) }
+                    items(requests, key = { "request:$it" }) { id ->
+                        Column(Modifier.fillMaxWidth()) {
+                            Text(id, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.labelMedium)
+                            Text(stringResource(R.string.requests_count, state.messages.count { it.peerAccountId == id && !it.outgoing }),
+                                style = MaterialTheme.typography.bodySmall)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(onClick = { peer = id; model.acceptRequest(id) }, enabled = enabled) { Text(stringResource(R.string.request_accept)) }
+                                OutlinedButton(onClick = { blockTarget = id }, enabled = enabled) { Text(stringResource(R.string.request_block)) }
+                            }
+                        }
+                    }
                 }
                 if (state.peer.isNotEmpty()) {
                     item { Text(state.peer, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.labelMedium) }
@@ -191,6 +210,12 @@ import ru.kniterp.messenger.core.SignalClient
                 item { OutlinedButton(onClick = model::logout, enabled = enabled) { Text(stringResource(R.string.auth_logout)) } }
             }
         }
+    }
+    blockTarget?.let { target ->
+        AlertDialog(onDismissRequest = { blockTarget = null }, title = { Text(stringResource(R.string.request_block)) },
+            text = { Text(stringResource(R.string.request_block_confirm) + "\n\n" + target, fontFamily = FontFamily.Monospace) },
+            confirmButton = { TextButton(onClick = { blockTarget = null; model.blockPeer(target) }, enabled = enabled) { Text(stringResource(R.string.request_block)) } },
+            dismissButton = { TextButton(onClick = { blockTarget = null }) { Text(stringResource(R.string.close)) } })
     }
     state.peerChange?.let { change ->
         AlertDialog(onDismissRequest = model::cancelPeerChange,

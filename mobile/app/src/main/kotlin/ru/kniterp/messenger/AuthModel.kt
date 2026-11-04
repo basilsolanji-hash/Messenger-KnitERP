@@ -25,7 +25,9 @@ data class AuthUiState(val loading: Boolean = true, val busy: Boolean = false, v
     /** Outgoing messages held after the peer moved to another device: shown as undelivered, never re-sent silently. */
     val heldIds: Set<String> = emptySet(),
     /** The peer's current device from the server, shown for explicit comparison; nothing is trusted until accepted. */
-    val peerChange: PeerChange? = null)
+    val peerChange: PeerChange? = null,
+    /** Peers whose texts are shown; other senders are message requests without preview (section 18). */
+    val acceptedPeers: Set<String> = emptySet(), val blockedPeers: Set<String> = emptySet())
 
 /** The screen never owns a session or closes it on rotation/navigation. */
 class AuthModel(application: Application) : AndroidViewModel(application) {
@@ -49,6 +51,8 @@ class AuthModel(application: Application) : AndroidViewModel(application) {
     fun checkPeerChange() = owner.checkPeerChange()
     fun acceptPeerChange() = owner.acceptPeerChange()
     fun cancelPeerChange() = owner.cancelPeerChange()
+    fun acceptRequest(peer: String) = owner.acceptRequest(peer)
+    fun blockPeer(peer: String) = owner.blockPeer(peer)
 }
 
 /** Exactly one controller and UserSession per active profile in this application process. */
@@ -152,7 +156,20 @@ internal class AuthController(private val application: Application, registryName
         val current = active()
         val valid = runCatching { Wire.id(peer) }.isSuccess && peer != current.signal.localDevice().accountId
         // Its own message instead of the generic configuration text of the old operator mode.
+        if (valid) current.delivery.acceptPeer(peer) // Typing or opening a chat is the user's own choice.
         mutable.value = if (valid) mutable.value.copy(peer = peer, peerChange = null) else mutable.value.copy(error = R.string.net_bad_peer)
+    }
+    fun acceptRequest(peer: String) = operation {
+        val current = active()
+        Wire.id(peer)
+        current.delivery.acceptPeer(peer)
+        mutable.value = mutable.value.copy(peer = peer, peerChange = null)
+    }
+    /** Server block; afterwards the peer's request is hidden and nothing is delivered either way. */
+    fun blockPeer(peer: String) = operation(R.string.request_blocked) {
+        val current = active()
+        current.delivery.blockPeer(peer)
+        if (mutable.value.peer == peer) mutable.value = mutable.value.copy(peer = "", peerChange = null)
     }
     /** Fetches the peer's current device for comparison of the new safety number; trusts nothing. */
     fun checkPeerChange() = operation {
@@ -237,6 +254,8 @@ internal class AuthController(private val application: Application, registryName
             ready = ready, ended = if (stored?.session != null) null else previousEnded,
             challengeId = stored?.pendingLogin?.challenge?.challengeId.orEmpty(),
             heldIds = current?.delivery?.heldIds().orEmpty(),
+            acceptedPeers = if (ready) current!!.delivery.acceptedPeers() else emptySet(),
+            blockedPeers = if (ready) current!!.delivery.blockedPeers() else emptySet(),
             messages = current?.signal?.history().orEmpty(), pendingIds = current?.signal?.pendingIds().orEmpty(),
             safetyNumber = if (ready && peer.isNotEmpty() && current!!.signal.hasPeer(peer)) current.signal.safetyNumber(peer) else "")
     }

@@ -9,6 +9,7 @@ class DeliveryTest {
         val sent = mutableListOf<Outgoing>()
         val claims = mutableListOf<ClaimRequest>()
         val acks = mutableListOf<List<Long>>()
+        val blocks = mutableListOf<Pair<String, String>>()
         private val accepted = mutableMapOf<String, Accepted>()
         var loseSend = false
         var loseAck = false
@@ -37,6 +38,9 @@ class DeliveryTest {
             override fun inbox(cursor: String?): InboxPage {
                 val items = packets.filter { it.senderAccountId != actor.device.accountId && it.sequence > (cursor?.toLong() ?: 0) }
                 return InboxPage(items, items.lastOrNull()?.sequence?.toString())
+            }
+            override fun block(request: BlockRequest) {
+                blocks += actor.device.accountId to request.accountId
             }
             override fun ack(request: AckRequest) {
                 acks += request.sequences
@@ -132,6 +136,35 @@ class DeliveryTest {
         Delivery(b2.vault, server.api(b2)).synchronize()
         assertEquals(1, b2.client.history().count { it.text == "удержано 0123 қазақша" })
         assertEquals(a.client.safetyNumber(b.device.accountId), b2.client.safetyNumber(a.device.accountId))
+    }
+    @Test fun strangerIsARequestUntilAcceptedAndBlockIsLocalOnlyAfterTheServer() {
+        val a = participant(); val b = participant(); val server = Server(a, b)
+        Delivery(b.vault, server.api(b)).apply { queue(a.device.accountId, "незнакомец"); synchronize() }
+        val receiver = Delivery(a.vault, server.api(a))
+        assertEquals(1, receiver.synchronize().received) // Stored and acknowledged, but not accepted.
+        assertFalse(b.device.accountId in receiver.acceptedPeers())
+        receiver.acceptPeer(b.device.accountId)
+        assertTrue(b.device.accountId in receiver.acceptedPeers())
+
+        val c = participant(); val other = Server(a, c)
+        val second = Delivery(a.vault, other.api(a))
+        Delivery(c.vault, other.api(c)).apply { queue(a.device.accountId, "спам"); synchronize() }
+        second.synchronize()
+        assertFalse(c.device.accountId in second.acceptedPeers())
+        val failing = Delivery(a.vault, object : MessageApi by other.api(a) {
+            override fun block(request: BlockRequest) = throw IOException("offline")
+        })
+        assertFailsWith<IOException> { failing.blockPeer(c.device.accountId) }
+        assertTrue(second.blockedPeers().isEmpty()) // Not marked locally without the server.
+        second.blockPeer(c.device.accountId)
+        assertEquals(listOf(a.device.accountId to c.device.accountId), other.blocks)
+        assertEquals(setOf(c.device.accountId), second.blockedPeers())
+        second.acceptPeer(c.device.accountId) // A blocked peer is not accepted by mistake.
+        assertFalse(c.device.accountId in second.acceptedPeers())
+        // Writing to someone accepts them.
+        val d = participant(); val third = Server(a, d)
+        Delivery(a.vault, third.api(a)).queue(d.device.accountId, "сам пишу")
+        assertTrue(d.device.accountId in Delivery(a.vault, third.api(a)).acceptedPeers())
     }
     @Test fun lostAckRedeliversCommittedMessageWithoutSecondHistoryEntry() {
         val a = participant(); val b = participant(); val server = Server(a, b)
