@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Макет · панель администратора «Ось коммуникации»</title>
+<style>
+:root{--ink:#14262b;--muted:#5b6f74;--line:#d5dfe1;--bg:#f4f7f7;--card:#fff;--teal:#0f6b6b;--warn:#a1260d;--ok:#11663c}
+*{box-sizing:border-box}body{margin:0;font:15px/1.45 system-ui,sans-serif;color:var(--ink);background:var(--bg)}
+.note{background:#fff7e0;border-bottom:1px solid #eadca8;padding:8px 16px;font-size:13px}
+header{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--card);border-bottom:1px solid var(--line);flex-wrap:wrap}
+header b{font-size:17px}header .who{margin-left:auto;color:var(--muted);font-size:13px}
+nav{display:flex;gap:4px;padding:8px 16px;overflow-x:auto;background:var(--card);border-bottom:1px solid var(--line)}
+nav a{padding:6px 12px;border-radius:6px;color:var(--ink);text-decoration:none;white-space:nowrap}nav a.on{background:var(--teal);color:#fff}
+main{padding:16px;max-width:1200px;margin:0 auto;display:grid;gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+h2{font-size:16px;margin:0 0 10px}.muted{color:var(--muted);font-size:13px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.kpi .v{font-size:24px;font-weight:600}.kpi .l{color:var(--muted);font-size:13px}
+.search{display:flex;gap:8px;flex-wrap:wrap}.search input{flex:1;min-width:200px;padding:8px 10px;font:inherit;border:1px solid var(--line);border-radius:6px}
+button{font:inherit;padding:7px 14px;border-radius:6px;border:1px solid var(--line);background:#fff;cursor:pointer}
+button.primary{background:var(--teal);color:#fff;border-color:var(--teal)}button.danger{color:var(--warn);border-color:#e3b5a9}
+.wide{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;padding:8px;border-bottom:1px solid #e6eced;white-space:nowrap}
+th{color:var(--muted);font-weight:500}td.id{font:12px ui-monospace,monospace}
+.tag{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px}.tag.ok{background:#e3f3ea;color:var(--ok)}.tag.stop{background:#fbe6e1;color:var(--warn)}
+.cols{display:grid;grid-template-columns:2fr 1fr;gap:16px}.cols>*,main>*{min-width:0}@media (max-width:900px){.cols{grid-template-columns:1fr}}
+@media (max-width:1000px){.table-users th:nth-child(3),.table-users td:nth-child(3),.table-users th:nth-child(5),.table-users td:nth-child(5){display:none}}.cards-m{display:none}@media (max-width:600px){.table-users{display:none}.cards-m{display:grid;gap:10px}}
+.u{border:1px solid var(--line);border-radius:8px;padding:10px}.u .row{display:flex;justify-content:space-between;gap:8px;margin-top:6px}
+.login{max-width:380px;margin:24px auto}.login input{width:100%;padding:9px 10px;margin:4px 0 12px;font:inherit;border:1px solid var(--line);border-radius:6px}
+.dialog{border:2px solid #e3b5a9}.log li{margin:6px 0}.log{padding-left:18px;margin:0}
+</style></head><body>
+<div class="note">Макет для утверждения (этап 5). Данные вымышленные. Текста переписки, ключей и полных номеров панель не показывает и не получает.</div>
+
+<section class="card login">
+  <h2>Вход в панель администратора</h2>
+  <label>Логин<input value="admin.ivanova" aria-label="Логин"></label>
+  <label>Пароль<input type="password" value="••••••••••••" aria-label="Пароль"></label>
+  <label>Код из приложения-аутентификатора<input inputmode="numeric" value="482 913" aria-label="Код TOTP"></label>
+  <button class="primary">Войти</button>
+  <p class="muted">Доступ только с разрешённых адресов. После 5 ошибок вход блокируется на 15 минут.</p>
+</section>
+
+<header><b>«Ось коммуникации» · администрирование</b><span class="who">admin.ivanova · администратор · <a href="#">Выйти</a></span></header>
+<nav><a class="on" href="#">Пользователи</a><a href="#">Жалобы <span class="tag stop">2</span></a><a href="#">Метрики</a><a href="#">Журнал</a><a href="#">Учётные записи панели</a></nav>
+<main>
+  <section class="kpis">
+    <div class="card kpi"><div class="v">1 248</div><div class="l">активных устройств</div></div>
+    <div class="card kpi"><div class="v">37</div><div class="l">сообщений в очереди</div></div>
+    <div class="card kpi"><div class="v">0,4%</div><div class="l">ошибок API за час</div></div>
+    <div class="card kpi"><div class="v">612 / 5 000 ₽</div><div class="l">SMS за сутки / бюджет</div></div>
+  </section>
+  <div class="cols">
+    <section class="card">
+      <h2>Пользователи</h2>
+      <div class="search"><input placeholder="Полный номер +7… или accountId" aria-label="Поиск"><button class="primary">Найти</button></div>
+      <p class="muted">«Действия»: отозвать сессии, приостановить или возобновить. Поиск по номеру: не больше 20 в час, сам номер не сохраняется, факт поиска пишется в журнал.</p>
+      <div class="wide table-users"><table>
+        <thead><tr><th>Аккаунт</th><th>Номер</th><th>Регистрация</th><th>Устройство</th><th>PIN</th><th>Состояние</th><th></th></tr></thead>
+        <tbody>
+          <tr><td class="id">8ce7d3a1-239c-…</td><td>•••• 4471</td><td>01.11.2026</td><td>Android · поколение 2</td><td>вкл</td><td><span class="tag ok">активен</span></td><td><button>Действия ▾</button></td></tr>
+          <tr><td class="id">787e9e1a-3434-…</td><td>скрыт</td><td>28.10.2026</td><td>Android · поколение 1</td><td>выкл</td><td><span class="tag stop">приостановлен</span></td><td><button>Действия ▾</button></td></tr>
+          <tr><td class="id">f312b344-bf48-…</td><td>•••• 0912</td><td>25.10.2026</td><td>Android · поколение 3</td><td>вкл</td><td><span class="tag ok">активен</span></td><td><button>Действия ▾</button></td></tr>
+        </tbody></table></div>
+      <div class="cards-m">
+        <div class="u"><div class="id" style="font:12px ui-monospace,monospace">8ce7d3a1-239c-…</div><div class="row"><span>•••• 4471 · поколение 2 · PIN вкл</span><span class="tag ok">активен</span></div><div class="row"><button>Отозвать сессии</button><button class="danger">Приостановить</button></div></div>
+        <div class="u"><div class="id" style="font:12px ui-monospace,monospace">787e9e1a-3434-…</div><div class="row"><span>скрыт · поколение 1 · PIN выкл</span><span class="tag stop">приостановлен</span></div><div class="row"><button>Возобновить</button></div></div>
+      </div>
+    </section>
+    <section class="card dialog">
+      <h2>Приостановить аккаунт 8ce7d3a1-…?</h2>
+      <p>Все сессии будут отозваны, вход по SMS и доставка сообщений — запрещены до возобновления. Переписка на телефонах не удаляется.</p>
+      <label class="muted">Причина (обязательно, попадёт в журнал)</label>
+      <div class="search"><input value="Жалоба #12: массовая рассылка" aria-label="Причина"></div>
+      <p><button class="danger">Приостановить</button> <button>Отмена</button></p>
+    </section>
+  </div>
+  <section class="card">
+    <h2>Журнал действий</h2>
+    <ul class="log muted">
+      <li>04.11.2026 18:02 · admin.ivanova · 10.66.0.5 · приостановка аккаунта 8ce7d3a1-… · «Жалоба #12: массовая рассылка» · успех</li>
+      <li>04.11.2026 17:55 · support.petrov · 10.66.0.6 · поиск по номеру · найден 1 аккаунт</li>
+      <li>04.11.2026 17:40 · admin.ivanova · 10.66.0.5 · вход · TOTP подтверждён</li>
+    </ul>
+  </section>
+</main>
+</body></html>
