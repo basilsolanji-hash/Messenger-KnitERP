@@ -1,0 +1,175 @@
+name: Two phones conversation
+# Two emulators at once (Android 8 / API 26 and Android 16 / API 36), each with its own installed app, talk to each other
+# through one real API (Development, Fake SMS) behind HTTPS with a CI-only CA and SPKI pins. Every step is a new app
+# process. Not a substitute for the manual test on two physical phones.
+on:
+  push:
+    paths: ["mobile/**", "server/**", ".github/workflows/two-phones.yml"]
+  pull_request:
+    paths: ["mobile/**", "server/**", ".github/workflows/two-phones.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  two-phones:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: messenger
+          POSTGRES_DB: messenger_android_live
+          POSTGRES_PASSWORD: ci-ephemeral-only
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U messenger -d messenger_android_live"
+          --health-interval 3s --health-timeout 3s --health-retries 20
+    env:
+      LOGS: ${{ github.workspace }}/mobile/app/build/outputs/ci-logs
+      ANDROID_AVD_HOME: ${{ github.workspace }}/.avd
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0' emulator 'system-images;android-26;google_apis;x86_64' 'system-images;android-36;google_apis;x86_64'
+      - uses: gradle/actions/setup-gradle@v4
+      - run: |
+          mkdir -p "$LOGS"
+          set -o pipefail
+          ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest 2>&1 | tee "$LOGS/build.txt"
+        working-directory: mobile
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - run: dotnet restore server/Messenger.Api --locked-mode && dotnet build server/Messenger.Api -c Release --no-restore
+      - name: Start live API
+        run: |
+          set -euo pipefail
+          live="$RUNNER_TEMP/live"; mkdir -p "$live"; cd "$live"
+          openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -keyout ca.key -out ca.pem -days 2 \
+            -subj "/CN=Messenger CI root" -addext "basicConstraints=critical,CA:TRUE" -addext "keyUsage=critical,keyCertSign,cRLSign" 2>/dev/null
+          openssl req -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -keyout leaf.key -out leaf.csr -subj "/CN=localhost" 2>/dev/null
+          printf 'subjectAltName=DNS:localhost\nextendedKeyUsage=serverAuth\nkeyUsage=critical,digitalSignature\nbasicConstraints=CA:FALSE\n' > leaf.ext
+          openssl x509 -req -in leaf.csr -CA ca.pem -CAkey ca.key -CAcreateserial -out leaf.pem -days 2 -extfile leaf.ext 2>/dev/null
+          openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out backup.key
+          pin() { openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | base64; }
+          pins="sha256/$(openssl x509 -in leaf.pem -pubkey -noout | pin),sha256/$(openssl pkey -in backup.key -pubout | pin)"
+          key=$(openssl rand -hex 32); echo "::add-mask::$key"
+          cat > front.py <<'PY'
+          import asyncio, ssl, sys
+          tls = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER); tls.minimum_version = ssl.TLSVersion.TLSv1_2
+          tls.load_cert_chain(sys.argv[1], sys.argv[2])
+          async def pipe(reader, writer):
+              try:
+                  while data := await reader.read(65536):
+                      writer.write(data); await writer.drain()
+              except (ConnectionError, ssl.SSLError):
+                  pass
+              finally:
+                  writer.close()
+          async def handle(reader, writer):
+              upstream = await asyncio.open_connection('127.0.0.1', 5080)
+              await asyncio.gather(pipe(reader, upstream[1]), pipe(upstream[0], writer))
+          async def main():
+              server = await asyncio.start_server(handle, '127.0.0.1', 8443, ssl=tls)
+              async with server: await server.serve_forever()
+          asyncio.run(main())
+          PY
+          root="$GITHUB_WORKSPACE/server/Messenger.Api/bin/Release/net10.0"
+          r() { openssl rand -base64 32; }
+          env ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://127.0.0.1:5080 ASPNETCORE_CONTENTROOT="$root" \
+            ConnectionStrings__Messenger='Host=127.0.0.1;Port=5432;Database=messenger_android_live;Username=messenger;Password=ci-ephemeral-only' \
+            Dev__AutoMigrate=true Dev__EnableOperatorEndpoints=true Dev__ProvisioningKey="$key" Dev__DataProtectionPath="$live/protection" \
+            Auth__SigningKey="$(r)" Auth__PhoneIndexKey="$(r)" Auth__SmsCodeKey="$(r)" Auth__PinPepper="$(r)" Auth__Sms__Provider=Fake \
+            Auth__Sms__Limits__IpPer10Minutes=200 Auth__Sms__Limits__IpPerDay=500 Auth__Sms__Limits__NetworkPer10Minutes=200 \
+            nohup dotnet "$root/Messenger.Api.dll" > "$LOGS/api.txt" 2>&1 &
+          nohup python3 front.py leaf.pem leaf.key > "$LOGS/front.txt" 2>&1 &
+          timeout 90 bash -c 'until curl -sf --cacert ca.pem https://localhost:8443/health/ready > /dev/null; do sleep 1; done'
+          { echo "LIVE_ORIGIN=https://localhost:8443/"; echo "LIVE_PINS=$pins"
+            echo "LIVE_CA=$(openssl x509 -in ca.pem -outform der | base64 -w0)"; echo "LIVE_KEY=$key"; } >> "$GITHUB_ENV"
+      - name: Boot two emulators
+        run: |
+          mkdir -p "$ANDROID_AVD_HOME"
+          for api in 26 36; do
+            echo no | avdmanager create avd --force -n "p$api" -k "system-images;android-$api;google_apis;x86_64" >> "$LOGS/avd.txt" 2>&1
+          done
+          nohup "$ANDROID_HOME/emulator/emulator" -avd p26 -port 5554 -no-window -gpu swiftshader_indirect -no-snapshot -noaudio \
+            -no-boot-anim -memory 3072 -camera-back none -camera-front none > "$LOGS/emulator26.txt" 2>&1 &
+          nohup "$ANDROID_HOME/emulator/emulator" -avd p36 -port 5556 -no-window -gpu swiftshader_indirect -no-snapshot -noaudio \
+            -no-boot-anim -memory 3072 -camera-back none -camera-front none > "$LOGS/emulator36.txt" 2>&1 &
+          for s in emulator-5554 emulator-5556; do
+            timeout 180 adb -s $s wait-for-device
+            timeout 900 bash -c "until [ \"\$(adb -s $s shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')\" = 1 ]; do sleep 5; done"
+            for key in window_animation_scale transition_animation_scale animator_duration_scale; do adb -s $s shell settings put global $key 0; done
+            echo "$s: Android $(adb -s $s shell getprop ro.build.version.release | tr -d '\r'), API $(adb -s $s shell getprop ro.build.version.sdk | tr -d '\r')" | tee -a "$LOGS/device.txt"
+          done
+      - name: Conversation between the phones
+        working-directory: mobile
+        run: |
+          set -euo pipefail
+          A=emulator-5554; B=emulator-5556   # A = Android 8, B = Android 16
+          apk=app/build/outputs/apk/debug; test_apk=app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          for s in $A $B; do
+            adb -s $s install -r -t "$(ls $apk/*x86_64*.apk | head -1)"
+            adb -s $s install -r -t "$test_apk"
+            adb -s $s reverse tcp:8443 tcp:8443
+          done
+          b64() { printf '%s' "$1" | base64 -w0 | tr '+/' '-_'; }
+          # step DEVICE NAME STEP [extra -e pairs]; prints the instrumentation output and fails unless the test passed.
+          step() {
+            local s=$1 name=$2; shift 2
+            local out="$LOGS/step-$name.txt"
+            adb -s $s shell am instrument -w -r -e class ru.kniterp.messenger.twophone.TwoPhoneStepTest \
+              -e liveRequired true -e liveOrigin "$LIVE_ORIGIN" -e livePins "$LIVE_PINS" -e liveCa "$LIVE_CA" -e liveOperatorKey "$LIVE_KEY" \
+              "$@" ru.kniterp.messenger.dev.test/androidx.test.runner.AndroidJUnitRunner > "$out" 2>&1 || true
+            grep -v liveOperatorKey "$out" | grep -E 'twoPhone|OK \(|FAILURES|Tests run|INSTRUMENTATION_CODE|Error|Exception' | head -20 || true
+            grep -q 'OK (1 test)' "$out" || { echo "::error title=step $name::$(grep -m5 -E 'Error|Exception|expected' "$out" | tr '\n' ' ')"; exit 1; }
+          }
+          value() { grep -m1 "INSTRUMENTATION_STATUS: $2=" "$LOGS/step-$1.txt" | sed "s/.*$2=//" | tr -d '\r'; }
+          step $A register-a -e twoPhoneStep register; ACC_A=$(value register-a twoPhoneAccount)
+          step $B register-b -e twoPhoneStep register; ACC_B=$(value register-b twoPhoneAccount)
+          test -n "$ACC_A" && test -n "$ACC_B" && test "$ACC_A" != "$ACC_B"
+          T1="Привет с Android 16 — тест 0123456789"; T2="Ответ с Android 8: қазақша o‘zbekcha беларуская"
+          T3="Третье сообщение после перезапуска процессов"
+          step $B send-b1 -e twoPhoneStep send -e peer "$ACC_A" -e textB64 "$(b64 "$T1")"
+          step $A expect-a1 -e twoPhoneStep expect -e peer "$ACC_B" -e textB64 "$(b64 "$T1")"
+          step $A send-a2 -e twoPhoneStep send -e peer "$ACC_B" -e textB64 "$(b64 "$T2")"
+          step $B expect-b2 -e twoPhoneStep expect -e peer "$ACC_A" -e textB64 "$(b64 "$T2")"
+          adb -s $A shell am force-stop ru.kniterp.messenger.dev; adb -s $B shell am force-stop ru.kniterp.messenger.dev
+          step $A send-a3 -e twoPhoneStep send -e peer "$ACC_B" -e textB64 "$(b64 "$T3")"
+          step $B expect-b3 -e twoPhoneStep expect -e peer "$ACC_A" -e textB64 "$(b64 "$T3")"
+          SA=$(value expect-a1 twoPhoneSafety); SB=$(value expect-b3 twoPhoneSafety)
+          test -n "$SA" && test "$SA" = "$SB" || { echo "::error title=safety number::differs between the phones"; exit 1; }
+          echo "TWO_PHONES_OK: Android 8 <-> Android 16, 3 messages, equal 60-digit safety numbers" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Annotate failures
+        if: failure()
+        run: |
+          for f in "$LOGS"/device.txt "$LOGS"/api.txt "$LOGS"/emulator26.txt "$LOGS"/emulator36.txt; do
+            [ -f "$f" ] && echo "::error title=$(basename "$f")::$(tail -15 "$f" | sed 's/%/%25/g' | tr '\n' '|' | cut -c1-3000)"
+          done
+          for s in emulator-5554 emulator-5556; do
+            adb -s $s logcat -d -v brief AndroidRuntime:E TestRunner:E System.err:W '*:S' 2>/dev/null | grep -v '\sat ' | head -40 > "$LOGS/logcat-$s.txt" || true
+            [ -s "$LOGS/logcat-$s.txt" ] && echo "::error title=logcat $s::$(sed 's/%/%25/g' "$LOGS/logcat-$s.txt" | tr '\n' '|' | cut -c1-3000)"
+          done
+          true
+      - name: Stop emulators
+        if: always()
+        run: for s in emulator-5554 emulator-5556; do adb -s $s emu kill || true; done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: two-phones-logs
+          path: mobile/app/build/outputs/ci-logs
+          retention-days: 14

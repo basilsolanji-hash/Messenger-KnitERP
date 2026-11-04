@@ -167,7 +167,7 @@ jobs:
           watchdog=$!
           # A hang must fail fast with evidence: 7 min per test (the longest live test waits ~5.5 min), 30 min in all.
           timeout --signal=INT 30m ./gradlew :app:connectedDebugAndroidTest "$p.timeout_msec=420000" \
-            "$p.liveRequired=true" "$p.liveOrigin=$LIVE_ORIGIN" "$p.livePins=$LIVE_PINS" \
+            "$p.liveRequired=true" "$p.notPackage=ru.kniterp.messenger.twophone" "$p.liveOrigin=$LIVE_ORIGIN" "$p.livePins=$LIVE_PINS" \
             "$p.liveCa=$LIVE_CA" "$p.liveOperatorKey=$LIVE_KEY" 2>&1 | tee "$LOGS/gradle.txt" || status=$?
           kill "$watchdog" 2>/dev/null || true
           if [ "$status" != 0 ]; then

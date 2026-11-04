@@ -13,14 +13,14 @@
 VPS: скопировать только каталог скриптов, развёрнутый код сервера не трогать.
 
 ```bash
-cd /opt/os-communications && git fetch -q --depth 1 origin claude/2026-10-25-closed-stand && git checkout FETCH_HEAD -- deploy/closed-stand && bash deploy/closed-stand/status.sh
+cd /opt/os-communications && git fetch -q --depth 1 origin main && git checkout FETCH_HEAD -- deploy/closed-stand && bash deploy/closed-stand/status.sh
 ```
 
 Windows:
 
 ```powershell
 mkdir $HOME\os-stand -Force | Out-Null; cd $HOME\os-stand
-foreach ($f in 'check-external.ps1','sms-limit-probe.ps1','move-backup-key.ps1') { curl.exe -fsSLO "https://raw.githubusercontent.com/basilsolanji-hash/Messenger-KnitERP/claude/2026-10-25-closed-stand/deploy/closed-stand/$f" }
+foreach ($f in 'check-external.ps1','sms-limit-probe.ps1','move-backup-key.ps1') { curl.exe -fsSLO "https://raw.githubusercontent.com/basilsolanji-hash/Messenger-KnitERP/main/deploy/closed-stand/$f" }
 scp -i "$HOME\.ssh\os_vps" root@155.212.217.23:/etc/os-communications-https-v1/server-endpoint.json .
 ```
 
@@ -62,7 +62,7 @@ bash /opt/os-communications/deploy/closed-stand/set-allowlist.sh --tester 95.27.
 
 1. Установить приложение **WireGuard**.
 2. Нажать **+**, выбрать «Сканировать QR-код» и включить туннель.
-3. При выключенном Wi‑Fi открыть `https://chat.kniterp.online/health/ready`. Ожидается `403`: это операторский путь, значит телефон дошёл до стенда как тестировщик.
+3. При выключенном Wi‑Fi открыть `https://chat.kniterp.online/api/v1/me`. Ожидается `401` (запрос без входа дошёл до API как тестировщик). `403` значит, что адрес туннеля не в списке; `/health/ready` для этой проверки не подходит: он операторский и отвечает `403` в обоих случаях.
 4. Проверить `wireguard.sh status`: у телефона должен быть `latest handshake`.
 
 QR-код содержит ключ телефона. Его не фотографируют и никому не пересылают.
@@ -93,7 +93,7 @@ powershell -ExecutionPolicy Bypass -File .\check-external.ps1 -Role operator
 2. На Windows выполнить `check-external.ps1 -Role tester`.
 3. На VPS вернуть команду из шага 2.
 
-Как проверить «IP вне списка»: на телефоне с мобильным интернетом без VPN открыть `https://chat.kniterp.online/health/ready`. Ожидается `403`.
+Как проверить «IP вне списка»: на телефоне с мобильным интернетом без VPN открыть `https://chat.kniterp.online/api/v1/me`. Ожидается `403` (из разрешённой сети тот же адрес даёт `401`).
 
 ## 4. Подделка X-Forwarded-For и лимит SMS
 
