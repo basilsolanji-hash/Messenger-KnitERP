@@ -23,8 +23,9 @@ interface MessageApi {
 }
 @Serializable data class BlockRequest(val accountId: String)
 /** [heldIds]: outgoing messages held after a refusal (see [Delivery]); they stay pending with the same ciphertext. */
+/** [dropped]: packets that failed authentication [MAX_REJECTS] times and were acknowledged so they stop blocking the inbox. */
 data class DeliveryReport(val accepted: Int, val received: Int, val rejectedSequences: List<Long>,
-                          val heldIds: List<String> = emptyList())
+                          val heldIds: List<String> = emptyList(), val dropped: Int = 0)
 
 /** Network calls never hold a database transaction. A cursor is NOT persisted:
  * unacknowledged messages must be retried after a crash. Each instance is serialized.
@@ -32,6 +33,9 @@ data class DeliveryReport(val accepted: Int, val received: Int, val rejectedSequ
 internal const val HELD = "delivery-held"
 private const val CHANGE_CLAIMS = "delivery-change-claims"
 private const val ACCEPTED = "peers-accepted"
+private const val REJECTS = "delivery-rejects"
+/** Attempts before a packet that can never decrypt is acknowledged and dropped. */
+const val MAX_REJECTS = 3
 private const val BLOCKED = "peers-blocked"
 
 class Delivery(private val vault: Vault, private val api: MessageApi,
@@ -103,6 +107,16 @@ class Delivery(private val vault: Vault, private val api: MessageApi,
         vault.transaction { r -> r.put(BLOCKED, peer, byteArrayOf(1)); r.delete(ACCEPTED, peer) }
     }
 
+    /** Counts a failed authentication of [item]; true once it has failed [MAX_REJECTS] times (then it is acknowledged). */
+    private fun permanent(item: Incoming, rejected: MutableList<Long>): Boolean {
+        val count = vault.transaction { r ->
+            val key = item.sequence.toString()
+            ((r.get(REJECTS, key)?.decodeToString()?.toIntOrNull() ?: 0) + 1).also { r.put(REJECTS, key, it.toString().toByteArray()) }
+        }
+        if (count < MAX_REJECTS) rejected += item.sequence
+        return count >= MAX_REJECTS
+    }
+
     /** Outgoing messages held after a refusal; they are never resent automatically. */
     fun heldIds(): Set<String> = vault.transaction { it.keys(HELD).toSet() }
 
@@ -127,28 +141,35 @@ class Delivery(private val vault: Vault, private val api: MessageApi,
         val sequences = mutableSetOf<Long>()
         val rejected = mutableListOf<Long>()
         var received = 0
+        var dropped = 0
         repeat(maxPages) {
             val page = api.inbox(cursor)
             require(page.items.size <= 100 && page.items.all { it.sequence > 0 && sequences.add(it.sequence) }) { "Invalid inbox page" }
-            if (page.items.isEmpty()) return DeliveryReport(accepted, received, rejected, heldIds)
+            if (page.items.isEmpty()) return DeliveryReport(accepted, received, rejected, heldIds, dropped)
             val committed = mutableListOf<Long>()
             for (item in page.items) {
                 try { signal.receive(item) }
+                // A new peer device or identity can become valid after the user accepts it: kept, never acknowledged.
                 catch (_: IdentityChanged) { rejected += item.sequence; continue }
                 catch (_: DeviceChanged) { rejected += item.sequence; continue }
-                catch (_: EnvelopeMismatch) { rejected += item.sequence; continue }
-                catch (_: MessageConflict) { rejected += item.sequence; continue }
-                catch (_: org.signal.libsignal.protocol.InvalidMessageException) { rejected += item.sequence; continue }
-                catch (_: org.signal.libsignal.protocol.InvalidKeyIdException) { rejected += item.sequence; continue }
+                // Packets that can never authenticate: kept for MAX_REJECTS synchronizations, then acknowledged and
+                // dropped, so forged or corrupt packets cannot pile up at the head of the inbox and block new messages.
+                catch (_: EnvelopeMismatch) { if (permanent(item, rejected)) { committed += item.sequence; dropped++ }; continue }
+                catch (_: MessageConflict) { if (permanent(item, rejected)) { committed += item.sequence; dropped++ }; continue }
+                catch (_: org.signal.libsignal.protocol.InvalidMessageException) { if (permanent(item, rejected)) { committed += item.sequence; dropped++ }; continue }
+                catch (_: org.signal.libsignal.protocol.InvalidKeyIdException) { if (permanent(item, rejected)) { committed += item.sequence; dropped++ }; continue }
                 // Storage/unknown failures abort WITHOUT ACK, never disguised as a bad packet.
                 committed += item.sequence
                 received++
             }
-            if (committed.isNotEmpty()) api.ack(AckRequest(committed))
-            val next = page.nextCursor ?: return DeliveryReport(accepted, received, rejected, heldIds)
+            if (committed.isNotEmpty()) {
+                api.ack(AckRequest(committed))
+                vault.transaction { r -> committed.forEach { r.delete(REJECTS, it.toString()) } }
+            }
+            val next = page.nextCursor ?: return DeliveryReport(accepted, received, rejected, heldIds, dropped)
             require(next.length <= 8192 && visited.add(next)) { "Invalid inbox cursor" }
             cursor = next
         }
-        return DeliveryReport(accepted, received, rejected, heldIds)
+        return DeliveryReport(accepted, received, rejected, heldIds, dropped)
     }
 }

@@ -209,6 +209,32 @@ class DeliveryTest {
         assertEquals(listOf(first.sequence), report.rejectedSequences)
         assertEquals("valid", b.client.history().single().text)
         assertFalse(server.acks.flatten().contains(first.sequence))
+        // Still rejected on the next attempt, then acknowledged and dropped so it cannot block the inbox forever.
+        val receiver = Delivery(b.vault, server.api(b))
+        repeat(MAX_REJECTS - 2) { assertEquals(listOf(first.sequence), receiver.synchronize().rejectedSequences) }
+        val last = receiver.synchronize()
+        assertEquals(1, last.dropped)
+        assertTrue(last.rejectedSequences.isEmpty())
+        assertTrue(server.acks.flatten().contains(first.sequence))
+        assertEquals(listOf("valid"), b.client.history().map { it.text }) // Nothing of the corrupt packet is stored.
+        assertEquals(0, receiver.synchronize().dropped)
+    }
+    @Test fun changedPeerDeviceIsNeverDroppedWhileWaitingForTheUser() {
+        val a = participant(); val b = participant(); val server = Server(a, b)
+        Delivery(a.vault, server.api(a)).apply { queue(b.device.accountId, "до"); synchronize() }
+        val receiver = Delivery(b.vault, server.api(b))
+        assertEquals(1, receiver.synchronize().received)
+        // The peer signs in on a new phone and writes; b has not checked the new device yet.
+        val moved = participant(a.device.accountId)
+        moved.client.establish(b.device.accountId, b.bundle())
+        val packet = moved.client.prepare(b.device.accountId, "с нового телефона").incoming(moved.device, 100)
+        server.packets += packet
+        repeat(MAX_REJECTS + 2) {
+            val report = receiver.synchronize()
+            assertEquals(listOf(packet.sequence), report.rejectedSequences)
+            assertEquals(0, report.dropped)
+        }
+        assertFalse(server.acks.flatten().contains(packet.sequence))
     }
     @Test fun mismatchedAcceptanceCannotDiscardOutbox() {
         val a = participant(); val b = participant(); val server = Server(a, b)
