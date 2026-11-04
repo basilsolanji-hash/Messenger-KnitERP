@@ -4,8 +4,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Messenger.Api;
 
-public sealed class Transport(MessengerDb db, TimeProvider clock)
+/// <param name="config">Optional limits (PRODUCT_SPEC section 18). Without it the defaults below apply.</param>
+public sealed class Transport(MessengerDb db, TimeProvider clock, IConfiguration? config = null)
 {
+    /// <summary>New key claims (new or re-verified peers) per account per day; shared by all API instances.</summary>
+    public const long DefaultClaimsPerDay = 100;
     public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     public static void Require(bool condition, string code = "INVALID_REQUEST", int status = 400)
     {
@@ -69,6 +72,9 @@ public sealed class Transport(MessengerDb db, TimeProvider clock)
             Require(prior.RecipientDeviceId == targetId && prior.ExpiresAt > clock.GetUtcNow(), "CLAIM_CONFLICT", 409);
             return JsonSerializer.Deserialize<ClaimedBundle>(prior.ResponseJson, Json)!;
         }
+        // Anti-spam (section 18): a fresh claim starts a conversation with a new or changed peer. An idempotent retry above
+        // is free; a refusal rolls back with the transaction and spends no prekeys.
+        await TakeDaily("claims-account:" + actor.AccountId.ToString("N"), config?.GetValue("Transport:Limits:ClaimsPerDay", DefaultClaimsPerDay) ?? DefaultClaimsPerDay, ct);
         var pre = await db.PreKeys.Where(x => x.DeviceId == targetId && x.Kind == 0 && !x.Claimed).OrderBy(x => x.Id).FirstOrDefaultAsync(ct);
         var pq = await db.PreKeys.Where(x => x.DeviceId == targetId && x.Kind == 1 && !x.Claimed).OrderBy(x => x.Id).FirstOrDefaultAsync(ct);
         Require(pre is not null && pq is not null, "PREKEYS_EXHAUSTED", 409);
@@ -81,6 +87,22 @@ public sealed class Transport(MessengerDb db, TimeProvider clock)
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         return bundle;
+    }
+
+    // Fixed daily window in PostgreSQL, atomic across instances (same table and pattern as the SMS limits).
+    private async Task TakeDaily(string key, long limit, CancellationToken ct)
+    {
+        var now = clock.GetUtcNow();
+        var start = now.ToUnixTimeSeconds() / 86400 * 86400;
+        var end = DateTimeOffset.FromUnixTimeSeconds(start + 86400);
+        var windowKey = key + ":86400:" + start.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var taken = limit > 0 && await db.Database.SqlQuery<long>($"""
+            INSERT INTO auth_counters ("Key", "WindowEnd", "Count") VALUES ({windowKey}, {end}, 1)
+            ON CONFLICT ("Key") DO UPDATE SET "Count" = auth_counters."Count" + 1
+            WHERE auth_counters."Count" + 1 <= {limit}
+            RETURNING "Count" AS "Value"
+            """).ToListAsync(ct) is { Count: 1 };
+        if (!taken) throw new ApiFault(429, "RATE_LIMITED") { RetryAfter = end - now };
     }
 
     public async Task<AcceptedMessage> Send(Actor actor, SendRequest request, CancellationToken ct)

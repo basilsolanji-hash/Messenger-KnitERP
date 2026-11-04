@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Messenger.Api;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -168,5 +169,30 @@ public sealed class TransportTests : IAsyncLifetime
         var next = await t.Claim(alice, request with { ClaimId = Guid.NewGuid() }, default);
         Assert.NotEqual(first.PreKey.Id, next.PreKey.Id);
         Assert.NotEqual(first.PqPreKey.Id, next.PqPreKey.Id);
+    }
+
+    [Fact, Trait("Category", "PostgreSQL")]
+    public async Task DailyClaimLimitIsSharedAndRetriesAreFree()
+    {
+        var limits = new Microsoft.Extensions.Configuration.ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Transport:Limits:ClaimsPerDay"] = "2" }).Build();
+        await using var db = new MessengerDb(options);
+        var t = new Transport(db, TimeProvider.System, limits);
+        var upload = new PublishBundleRequest(1, new byte[33], new byte[64],
+            Enumerable.Range(1, 8).Select(i => new PublicPreKey(i, new byte[33])).ToArray(),
+            Enumerable.Range(1, 8).Select(i => new PublicPqPreKey(i, new byte[1569], new byte[64])).ToArray());
+        await t.Publish(bob, upload, default);
+        var first = new ClaimRequest(bob.AccountId, Guid.NewGuid());
+        await t.Claim(alice, first, default);
+        await t.Claim(alice, first, default); // Idempotent retry: not counted.
+        await t.Claim(alice, first with { ClaimId = Guid.NewGuid() }, default);
+        await using var other = new MessengerDb(options); // Another instance shares the counter.
+        var fault = await Assert.ThrowsAsync<ApiFault>(() =>
+            new Transport(other, TimeProvider.System, limits).Claim(alice, first with { ClaimId = Guid.NewGuid() }, default));
+        Assert.Equal(429, fault.Status);
+        Assert.Equal("RATE_LIMITED", fault.Code);
+        Assert.NotNull(fault.RetryAfter);
+        await using var verify = new MessengerDb(options);
+        Assert.Equal(6, await verify.PreKeys.CountAsync(x => x.DeviceId == bob.DeviceId && x.Kind == 0 && !x.Claimed));
     }
 }
