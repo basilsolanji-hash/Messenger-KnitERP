@@ -29,7 +29,7 @@ data class DeliveryReport(val accepted: Int, val received: Int, val rejectedSequ
 /** Network calls never hold a database transaction. A cursor is NOT persisted:
  * unacknowledged messages must be retried after a crash. Each instance is serialized.
  */
-private const val HELD = "delivery-held"
+internal const val HELD = "delivery-held"
 private const val CHANGE_CLAIMS = "delivery-change-claims"
 private const val ACCEPTED = "peers-accepted"
 private const val BLOCKED = "peers-blocked"
@@ -59,7 +59,12 @@ class Delivery(private val vault: Vault, private val api: MessageApi,
      */
     @Synchronized fun checkPeerChange(peer: String): PeerChange {
         Wire.id(peer)
-        return signal.previewChange(peer, changeBundle(peer))
+        return signal.previewChange(peer, changeBundle(peer)).also { if (!it.changed) forgetPeerChange(peer) }
+    }
+    /** The user closed the check without accepting: the next check claims the peer's then-current device. */
+    @Synchronized fun forgetPeerChange(peer: String) {
+        Wire.id(peer)
+        vault.transaction { it.delete(CHANGE_CLAIMS, peer) }
     }
     /**
      * After the user compared [confirmedSafetyNumber] with the peer: pins the new device, re-encrypts this peer's pending
@@ -68,8 +73,8 @@ class Delivery(private val vault: Vault, private val api: MessageApi,
     @Synchronized fun acceptPeerChange(peer: String, confirmedSafetyNumber: String): Int {
         Wire.id(peer)
         val bundle = changeBundle(peer)
-        val ids = signal.acceptChange(peer, bundle, confirmedSafetyNumber)
-        vault.transaction { r -> ids.forEach { r.delete(HELD, it) }; r.delete(CHANGE_CLAIMS, peer) }
+        val ids = signal.acceptChange(peer, bundle, confirmedSafetyNumber) // Also releases their held marks atomically.
+        vault.transaction { r -> r.delete(CHANGE_CLAIMS, peer) }
         return ids.size
     }
     private fun changeBundle(peer: String): ClaimedBundle {

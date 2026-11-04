@@ -8,7 +8,9 @@ param(
     [int]$Cores = 2, [int]$MemoryGb = 2, [int]$DiskGb = 20
 )
 $ErrorActionPreference = 'Stop'
-function Yc { $out = & yc @args --format json 2>&1; if ($LASTEXITCODE) { throw "yc $($args -join ' '): $out" }; if ($out) { $out | ConvertFrom-Json } }
+# stdout only: Windows PowerShell 5.1 turns redirected stderr (yc progress) into terminating errors under 'Stop'.
+# yc's own messages stay on the console; failure is detected by the exit code.
+function Yc { $out = & yc @args --format json; if ($LASTEXITCODE) { throw "yc $($args -join ' ') failed with exit code $LASTEXITCODE" }; if ($out) { ($out -join "`n") | ConvertFrom-Json } }
 function Find($kind, $name) { (Yc vpc $kind list) | Where-Object { $_.name -eq $name } | Select-Object -First 1 }
 
 if (-not (Test-Path $SshPublicKey)) { throw "SSH public key not found: $SshPublicKey" }
@@ -45,5 +47,6 @@ if (-not $vm) {
         --ssh-key $SshPublicKey
 }
 Write-Host ""
-Write-Host "CREATE_OK vm=$($vm.name) status=$($vm.status) ip=$ip security_group=$($sg.id) ssh_from=$operatorIp/32"
+Write-Host "CREATE_OK vm=$($vm.name) status=$($vm.status) ip=$ip security_group=$($sg.id)"
+Write-Host "SSH is allowed from the IP saved in os-chat-sg when it was created. If this computer's IP ($operatorIp) changed, update the rule in the console."
 Write-Host "Next: ssh -i `"$HOME\.ssh\os_vps`" yc-user@$ip   (then run setup-vm.sh, README step Я-6..Я-8)"

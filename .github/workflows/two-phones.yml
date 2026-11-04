@@ -30,6 +30,12 @@ jobs:
       ANDROID_AVD_HOME: ${{ github.workspace }}/.avd
     steps:
       - uses: actions/checkout@v4
+      # Two system images and two emulators do not fit the runner's free disk otherwise (run 41861302322).
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/swift /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/share/miniconda \
+            /usr/local/lib/node_modules /usr/local/share/powershell /usr/local/share/chromium /opt/microsoft/msedge || true
+          df -h / | tail -1
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -141,7 +147,7 @@ jobs:
           NUM_A="912$(shuf -i 1000000-9999999 -n1)"
           step $A register-a -e twoPhoneStep register -e number "$NUM_A"; ACC_A=$(value register-a twoPhoneAccount)
           step $B register-b -e twoPhoneStep register; ACC_B=$(value register-b twoPhoneAccount)
-          test -n "$ACC_A" && test -n "$ACC_B" && test "$ACC_A" != "$ACC_B"
+          { test -n "$ACC_A" && test -n "$ACC_B" && test "$ACC_A" != "$ACC_B"; } || { echo "::error title=accounts::missing or equal account ids"; exit 1; }
           T1="Привет с Android 16 — тест 0123456789"; T2="Ответ с Android 8: қазақша o‘zbekcha беларуская"
           T3="Третье сообщение после перезапуска процессов"
           step $B send-b1 -e twoPhoneStep send -e peer "$ACC_A" -e textB64 "$(b64 "$T1")"
@@ -157,9 +163,11 @@ jobs:
           # safety number is accepted explicitly; then both directions work again.
           sleep 61   # the server's 60 s resend gate per number
           step $A relogin-a -e twoPhoneStep relogin -e number "$NUM_A"
-          test "$(value relogin-a twoPhoneAccount)" = "$ACC_A"
+          test "$(value relogin-a twoPhoneAccount)" = "$ACC_A" || { echo "::error title=relogin::account changed"; exit 1; }
           T4="После повторного входа на Android 8"; T5="Новое устройство подтверждено на Android 16"
           step $A send-a4 -e twoPhoneStep send -e peer "$ACC_B" -e textB64 "$(b64 "$T4")"
+          # Before any check the new device is refused: the text is not shown and is not acknowledged.
+          step $B refuse-b -e twoPhoneStep refuse -e peer "$ACC_A" -e textB64 "$(b64 "$T4")"
           step $B accept-b -e twoPhoneStep accept -e peer "$ACC_A"
           step $B expect-b4 -e twoPhoneStep expect -e peer "$ACC_A" -e textB64 "$(b64 "$T4")"
           step $B send-b5 -e twoPhoneStep send -e peer "$ACC_A" -e textB64 "$(b64 "$T5")"

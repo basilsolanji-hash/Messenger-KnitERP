@@ -48,7 +48,7 @@
     <string name="net_open">Chatni ochish</string>
     <string name="net_queued">Telefondagi navbatda</string>
     <string name="net_accepted">Server qabul qildi · o‘qilgani tasdiqlanmagan</string>
-    <string name="net_held">Yetkazilmadi: suhbatdosh qurilmasi o‘zgardi. Qayta yuborilmaydi.</string>
+    <string name="net_held">Yetkazilmadi: suhbatdosh qurilmasi o‘zgardi yoki yetkazib bo‘lmaydi. Avtomatik yuborilmaydi.</string>
     <string name="net_safety">Shaxsiy ma’lumotlarni yuborishdan oldin ikkala telefondagi barcha 60 ta raqamni solishtiring.</string>
     <string name="net_rejected">Ayrim xabarlar tekshiruvdan o‘tmadi. Ular uchun tasdiq yuborilmadi.</string>
     <string name="net_identity_changed">Xavfsizlik kodi yoki qurilma o‘zgardi. Yuborish to‘xtatildi.</string>
@@ -119,7 +119,7 @@
     <string name="net_peer_new_text">Suhbatdosh qaytadan yoki boshqa telefondan kirdi. Barcha 60 ta raqamni suhbatdosh bilan shaxsan yoki qo‘ng‘iroq orqali solishtiring. Faqat raqamlar mos kelsa tasdiqlang: aks holda xabarlaringizni begona odam o‘qishi mumkin.</string>
     <string name="net_peer_confirm">Raqamlar mos — tasdiqlash</string>
     <string name="net_peer_unchanged">Suhbatdoshning qurilmasi o‘zgarmagan. Joriy xavfsizlik kodi:</string>
-    <string name="net_peer_accepted">Yangi qurilma tasdiqlandi. Ushlab turilgan xabarlar yuborish navbatiga qo‘yildi.</string>
+    <string name="net_peer_accepted">Yangi qurilma tasdiqlandi. Yetkazilmagan xabarlar yuborish navbatiga qo‘yildi.</string>
     <string name="net_bad_peer">Suhbatdosh ID-si noto‘g‘ri. Boshqa akkaunt ID-si kerak: 36 ta belgi.</string>
     <string name="requests_title">Yozishmaga so‘rovlar</string>
     <string name="requests_hint">Notanish akkauntlardan kelgan xabarlar. So‘rovni qabul qilmaguningizcha matn ko‘rsatilmaydi.</string>
@@ -128,4 +128,5 @@
     <string name="request_block">Bloklash</string>
     <string name="request_block_confirm">Akkaunt bloklansinmi? Bu versiyada blokni olib tashlab bo‘lmaydi.</string>
     <string name="request_blocked">Akkaunt bloklandi. O‘rtangizdagi xabarlar endi yetkazilmaydi.</string>
+    <string name="net_not_delivered">Ayrim xabarlar yetkazilmadi: bu suhbatdoshga yetkazib bo‘lmaydi. Ular avtomatik yuborilmaydi.</string>
 </resources>

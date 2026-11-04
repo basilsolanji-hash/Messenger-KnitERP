@@ -9,6 +9,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import ru.kniterp.messenger.live.Live
 import ru.kniterp.messenger.live.Phone
+import ru.kniterp.messenger.R
 import ru.kniterp.messenger.network.LoginStep
 
 /**
@@ -43,6 +44,13 @@ class TwoPhoneStepTest {
                 assertTrue(done.ready)
                 assertNotEquals(before, phone.controller.deviceId)
                 report("twoPhoneAccount", done.accountId)
+            }
+            // The peer's new device is refused until it is checked: shown as a rejection, the text stays hidden.
+            "refuse" -> resumed().use { phone ->
+                val peer = arg("peer")
+                phone.open(peer)
+                assertEquals(R.string.net_rejected, phone.sync().error)
+                assertFalse(text() in phone.incoming(peer))
             }
             // The other phone checks the new safety number and accepts it explicitly.
             "accept" -> resumed().use { phone ->

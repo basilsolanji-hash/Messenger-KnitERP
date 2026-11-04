@@ -167,7 +167,8 @@ if (enableOperatorEndpoints)
         return Results.Ok(access.Issue(account!, device!));
     });
 
-    OperatorPanel.Map(app);
+    // Stand panel only with the Fake SMS provider (PRODUCT_SPEC section 17): absent once real SMS is configured.
+    if (app.Services.GetService<FakeSms>() is not null) OperatorPanel.Map(app);
 
     // Synthetic test stand only: reads a code the in-memory fake provider "sent". Not mapped with a real provider,
     // requires the operator key, and takes the challenge id in the body so no number or code appears in a URL.

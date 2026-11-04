@@ -64,6 +64,8 @@ internal object AuthOwners {
     @VisibleForTesting @Synchronized fun simulateProcessDeath() { instance?.close(); instance = null }
 }
 
+private val HELD_CODES = setOf("RECIPIENT_DEVICE_CHANGED", "DELIVERY_UNAVAILABLE", "IDEMPOTENCY_CONFLICT")
+
 @Serializable private data class ActivationProfile(val deviceId: String, val server: ServerEndpoint, val prepared: Boolean = false)
 
 /**
@@ -96,8 +98,14 @@ internal class AuthController(private val application: Application, registryName
         val api = PinnedApi.session(endpoint, session, trust)
         private val messages = wrap(api)
         val activation = ActivationCompletion(vault, store, device, messages)
-        // A recipient on a new device is held, not retried blindly, and must not block the inbox.
-        val delivery = Delivery(vault, messages) { it is ApiFailure && it.code == "RECIPIENT_DEVICE_CHANGED" }
+        /** Last reason a message was held in this process; shown in the banner. */
+        @Volatile var heldCode: String? = null
+        // Refusals a retry cannot fix are held, never retried blindly, and must not block the inbox or other chats:
+        // the recipient moved to a new device, delivery is unavailable (a block in either direction), or the server
+        // already accepted this id with other content.
+        val delivery = Delivery(vault, messages) {
+            (it is ApiFailure && it.code in HELD_CODES).also { held -> if (held) heldCode = (it as ApiFailure).code }
+        }
         fun close() { api.close(); auth.close() }
     }
 
@@ -187,7 +195,12 @@ internal class AuthController(private val application: Application, registryName
         snapshot()
         report(current.delivery.synchronize(maxPages = 3, maxOutgoing = 20))
     }
-    fun cancelPeerChange() { mutable.value = mutable.value.copy(peerChange = null) }
+    /** Closing the dialog forgets the pending claim, so a later check gets the peer's then-current device. */
+    fun cancelPeerChange() = operation {
+        val change = mutable.value.peerChange
+        mutable.value = mutable.value.copy(peerChange = null)
+        if (change != null) active().delivery.forgetPeerChange(change.peerAccountId)
+    }
     fun synchronize() = operation { report(active().delivery.synchronize(maxPages = 3, maxOutgoing = 20)) }
     fun send(text: String) = operation {
         val current = active()
@@ -199,7 +212,9 @@ internal class AuthController(private val application: Application, registryName
     /** A changed peer device or identity is shown, never accepted silently; affected messages stay unaccepted. */
     private fun report(report: DeliveryReport) {
         val error = when {
-            report.heldIds.isNotEmpty() -> R.string.net_identity_changed
+            report.heldIds.isNotEmpty() ->
+                if (profile?.heldCode == "RECIPIENT_DEVICE_CHANGED" || profile?.heldCode == null) R.string.net_identity_changed
+                else R.string.net_not_delivered
             report.rejectedSequences.isNotEmpty() -> R.string.net_rejected
             else -> return
         }

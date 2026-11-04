@@ -110,8 +110,15 @@ class LiveChatTest {
         assertEquals(R.string.request_blocked, blocked.notice)
         assertTrue(spammerId in blocked.blockedPeers)
         assertFalse(spammerId in blocked.acceptedPeers)
-        // The server now refuses delivery from the blocked account; nothing new reaches the inbox.
-        assertNotNull(spammer.send("Ещё реклама").error)
+        // The server now refuses delivery from the blocked account. The text is held (not retried) and does not
+        // break the spammer's inbox or other chats; nothing new reaches the blocking user.
+        val refused = spammer.send("Ещё реклама")
+        assertEquals(R.string.net_not_delivered, refused.error)
+        assertEquals(setOf(spammer.outgoing("Ещё реклама").id), refused.heldIds)
+        stranger.open(spammerId)
+        assertNull(stranger.send("Проверка входящих").error)
+        assertEquals(R.string.net_not_delivered, spammer.sync().error) // Still shown, but the inbox flows:
+        assertEquals(listOf("Проверка входящих"), spammer.incoming(strangerId))
         a.sync()
         assertEquals(listOf("Реклама"), a.incoming(spammerId))
         a.close(); stranger.close(); spammer.close()

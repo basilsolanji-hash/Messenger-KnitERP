@@ -125,6 +125,7 @@ class SignalClient(private val vault: Vault) {
             require(Wire.bytes(outgoing.ciphertext).size <= MAX_CIPHERTEXT_BYTES)
             r.write("outgoing", id, StoredOutgoing(outgoing, content))
             r.write("pending", id, outgoing)
+            r.delete(HELD, id) // Released in the same transaction as the new ciphertext.
             id
         }
     }
