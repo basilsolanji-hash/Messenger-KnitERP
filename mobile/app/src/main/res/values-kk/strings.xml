@@ -114,4 +114,10 @@
     <string name="auth_new_login">Қайта кіру · тарих сақталады</string>
     <string name="auth_chat_notice">Жабық сынақ: әңгімелесушінің аккаунт ID мәнін енгізіңіз. Нөмір арқылы контактілер кейін қосылады.</string>
     <string name="auth_done_restored">Аккаунтқа кірдіңіз</string>
+    <string name="net_peer_check">Әңгімелесушінің жаңа құрылғысын тексеру</string>
+    <string name="net_peer_new_title">Әңгімелесушінің жаңа құрылғысы</string>
+    <string name="net_peer_new_text">Әңгімелесуші қайта немесе басқа телефоннан кірді. Барлық 60 цифрды әңгімелесушімен жеке немесе қоңырау арқылы салыстырыңыз. Цифрлар сәйкес келсе ғана растаңыз: әйтпесе хабарларыңызды бөгде адам оқуы мүмкін.</string>
+    <string name="net_peer_confirm">Цифрлар сәйкес — растау</string>
+    <string name="net_peer_unchanged">Әңгімелесушінің құрылғысы өзгермеген. Ағымдағы қауіпсіздік коды:</string>
+    <string name="net_peer_accepted">Жаңа құрылғы расталды. Ұсталған хабарлар жіберу кезегіне қойылды.</string>
 </resources>

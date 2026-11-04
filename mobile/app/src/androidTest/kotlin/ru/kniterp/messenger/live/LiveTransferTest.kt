@@ -9,7 +9,8 @@ import ru.kniterp.messenger.R
 import ru.kniterp.messenger.network.LoginError
 import ru.kniterp.messenger.network.LoginStep
 
-/** Moving a number to a new phone: PIN step, the old phone is revoked, and the peer refuses the new device loudly. */
+/** Moving a number to a new phone: PIN step, the old phone is revoked, the peer refuses the new device loudly and accepts it
+ * only after an explicit check of the new safety number. */
 @RunWith(AndroidJUnit4::class)
 class LiveTransferTest {
     @Before fun live() = Live.assumeConfigured()
@@ -62,6 +63,23 @@ class LiveTransferTest {
         moved.sync()
         assertFalse("Старому устройству 3" in moved.incoming(peerId))
         assertEquals(R.string.net_identity_changed, peer.sync().error) // Still shown on every sync.
+
+        // Explicit acceptance: the peer sees the NEW safety number (the moved phone shows the same), confirms it,
+        // receives the rejected text once and its held text is re-encrypted for the new device and delivered once.
+        val change = requireNotNull(peer.act { checkPeerChange() }.peerChange)
+        assertTrue(change.changed)
+        assertEquals(moved.state.safetyNumber, change.safetyNumber)
+        assertNotEquals(old.state.safetyNumber, change.safetyNumber)
+        val accepted = peer.act { acceptPeerChange() }
+        assertNull(accepted.error)
+        assertEquals(R.string.net_peer_accepted, accepted.notice)
+        assertTrue(accepted.heldIds.isEmpty() && accepted.pendingIds.isEmpty())
+        assertNull(accepted.peerChange)
+        assertEquals(1, peer.incoming(account).count { it == "С нового телефона 2" })
+        assertNull(moved.sync().error)
+        assertEquals(1, moved.incoming(peerId).count { it == "Старому устройству 3" })
+        assertEquals(moved.state.safetyNumber, peer.state.safetyNumber)
+        assertFalse(requireNotNull(peer.act { checkPeerChange() }.peerChange).changed)
         old.close(); peer.close(); moved.close()
     }
 }

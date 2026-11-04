@@ -138,7 +138,8 @@ jobs:
             grep -q 'OK (1 test)' "$out" || { echo "::error title=step $name::$(grep -m5 -E 'Error|Exception|expected' "$out" | tr '\n' ' ')"; exit 1; }
           }
           value() { grep -m1 "INSTRUMENTATION_STATUS: $2=" "$LOGS/step-$1.txt" | sed "s/.*$2=//" | tr -d '\r'; }
-          step $A register-a -e twoPhoneStep register; ACC_A=$(value register-a twoPhoneAccount)
+          NUM_A="912$(shuf -i 1000000-9999999 -n1)"
+          step $A register-a -e twoPhoneStep register -e number "$NUM_A"; ACC_A=$(value register-a twoPhoneAccount)
           step $B register-b -e twoPhoneStep register; ACC_B=$(value register-b twoPhoneAccount)
           test -n "$ACC_A" && test -n "$ACC_B" && test "$ACC_A" != "$ACC_B"
           T1="Привет с Android 16 — тест 0123456789"; T2="Ответ с Android 8: қазақша o‘zbekcha беларуская"
@@ -152,7 +153,21 @@ jobs:
           step $B expect-b3 -e twoPhoneStep expect -e peer "$ACC_A" -e textB64 "$(b64 "$T3")"
           SA=$(value expect-a1 twoPhoneSafety); SB=$(value expect-b3 twoPhoneSafety)
           test -n "$SA" && test "$SA" = "$SB" || { echo "::error title=safety number::differs between the phones"; exit 1; }
-          echo "TWO_PHONES_OK: Android 8 <-> Android 16, 3 messages, equal 60-digit safety numbers" | tee -a "$GITHUB_STEP_SUMMARY"
+          # Android 8 signs in again with the same number (new device and keys). Android 16 must refuse it until the new
+          # safety number is accepted explicitly; then both directions work again.
+          sleep 61   # the server's 60 s resend gate per number
+          step $A relogin-a -e twoPhoneStep relogin -e number "$NUM_A"
+          test "$(value relogin-a twoPhoneAccount)" = "$ACC_A"
+          T4="После повторного входа на Android 8"; T5="Новое устройство подтверждено на Android 16"
+          step $A send-a4 -e twoPhoneStep send -e peer "$ACC_B" -e textB64 "$(b64 "$T4")"
+          step $B accept-b -e twoPhoneStep accept -e peer "$ACC_A"
+          step $B expect-b4 -e twoPhoneStep expect -e peer "$ACC_A" -e textB64 "$(b64 "$T4")"
+          step $B send-b5 -e twoPhoneStep send -e peer "$ACC_A" -e textB64 "$(b64 "$T5")"
+          step $A expect-a5 -e twoPhoneStep expect -e peer "$ACC_B" -e textB64 "$(b64 "$T5")"
+          NB=$(value accept-b twoPhoneNewSafety); NA=$(value expect-a5 twoPhoneSafety); NB2=$(value expect-b4 twoPhoneSafety)
+          test -n "$NA" && test "$NA" = "$NB" && test "$NB" = "$NB2" && test "$NA" != "$SA" ||
+            { echo "::error title=new safety number::not equal on both phones or unchanged after relogin"; exit 1; }
+          echo "TWO_PHONES_OK: Android 8 <-> Android 16, 5 messages, relogin accepted only by explicit safety-number check" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Annotate failures
         if: failure()
         run: |

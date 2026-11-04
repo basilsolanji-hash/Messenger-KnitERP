@@ -30,7 +30,30 @@ class TwoPhoneStepTest {
     @Test fun step() {
         Live.assumeConfigured()
         when (val step = arg("twoPhoneStep")) {
-            "register" -> Phone(REGISTRY).use { report("twoPhoneAccount", it.register()) }
+            "register" -> Phone(REGISTRY).use { report("twoPhoneAccount", it.register(args.getString("number") ?: Live.number())) }
+            // The same number signs in again on this phone (logout, new device and keys, same account).
+            "relogin" -> resumed().use { phone ->
+                val before = phone.controller.deviceId
+                assertNull(phone.act { logout() }.error)
+                if (phone.state.login.step != LoginStep.PHONE) phone.configure()
+                assertEquals(LoginStep.CODE, phone.request(arg("number")).login.step)
+                val done = phone.submitCode(phone.code())
+                assertEquals(LoginStep.ACTIVATED, done.login.step)
+                assertEquals(false, done.login.newAccount)
+                assertTrue(done.ready)
+                assertNotEquals(before, phone.controller.deviceId)
+                report("twoPhoneAccount", done.accountId)
+            }
+            // The other phone checks the new safety number and accepts it explicitly.
+            "accept" -> resumed().use { phone ->
+                phone.open(arg("peer"))
+                val change = requireNotNull(phone.act { checkPeerChange() }.peerChange)
+                assertTrue("The peer's device must have changed", change.changed)
+                report("twoPhoneNewSafety", change.safetyNumber)
+                val accepted = phone.act { acceptPeerChange() }
+                assertNull(accepted.error)
+                assertTrue(accepted.heldIds.isEmpty())
+            }
             "send" -> resumed().use { phone ->
                 phone.open(arg("peer"))
                 assertNull(phone.send(text()).error)

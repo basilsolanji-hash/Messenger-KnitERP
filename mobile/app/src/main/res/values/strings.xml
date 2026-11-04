@@ -114,4 +114,10 @@
     <string name="auth_new_login">Войти заново · история сохранится</string>
     <string name="auth_chat_notice">Закрытый тест: укажите ID аккаунта собеседника. Контакты по номеру будут подключены позже.</string>
     <string name="auth_done_restored">Вы вошли в аккаунт</string>
+    <string name="net_peer_check">Проверить новое устройство собеседника</string>
+    <string name="net_peer_new_title">Новое устройство собеседника</string>
+    <string name="net_peer_new_text">Собеседник вошёл заново или на другом телефоне. Сверьте все 60 цифр с собеседником лично или по звонку. Подтверждайте, только если цифры совпадают: иначе ваши сообщения может читать посторонний.</string>
+    <string name="net_peer_confirm">Цифры совпали — подтвердить</string>
+    <string name="net_peer_unchanged">Устройство собеседника не менялось. Текущий код безопасности:</string>
+    <string name="net_peer_accepted">Новое устройство подтверждено. Удержанные сообщения поставлены в очередь отправки.</string>
 </resources>

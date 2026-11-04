@@ -23,7 +23,9 @@ data class AuthUiState(val loading: Boolean = true, val busy: Boolean = false, v
     /** Public challenge id: the test-stand operator reads the Fake SMS code by it. Not a secret without the operator key. */
     val challengeId: String = "",
     /** Outgoing messages held after the peer moved to another device: shown as undelivered, never re-sent silently. */
-    val heldIds: Set<String> = emptySet())
+    val heldIds: Set<String> = emptySet(),
+    /** The peer's current device from the server, shown for explicit comparison; nothing is trusted until accepted. */
+    val peerChange: PeerChange? = null)
 
 /** The screen never owns a session or closes it on rotation/navigation. */
 class AuthModel(application: Application) : AndroidViewModel(application) {
@@ -44,6 +46,9 @@ class AuthModel(application: Application) : AndroidViewModel(application) {
     fun selectPeer(peer: String) = owner.selectPeer(peer)
     fun synchronize() = owner.synchronize()
     fun send(text: String) = owner.send(text)
+    fun checkPeerChange() = owner.checkPeerChange()
+    fun acceptPeerChange() = owner.acceptPeerChange()
+    fun cancelPeerChange() = owner.cancelPeerChange()
 }
 
 /** Exactly one controller and UserSession per active profile in this application process. */
@@ -146,8 +151,25 @@ internal class AuthController(private val application: Application, registryName
     fun selectPeer(peer: String) = operation {
         val current = active()
         Wire.id(peer); require(peer != current.signal.localDevice().accountId)
-        mutable.value = mutable.value.copy(peer = peer)
+        mutable.value = mutable.value.copy(peer = peer, peerChange = null)
     }
+    /** Fetches the peer's current device for comparison of the new safety number; trusts nothing. */
+    fun checkPeerChange() = operation {
+        val peer = mutable.value.peer
+        require(peer.isNotEmpty())
+        mutable.value = mutable.value.copy(peerChange = active().delivery.checkPeerChange(peer))
+    }
+    /** Only from the dialog that showed exactly this safety number; held messages are re-encrypted and sent. */
+    fun acceptPeerChange() = operation(R.string.net_peer_accepted) {
+        val change = requireNotNull(mutable.value.peerChange)
+        require(change.changed && change.peerAccountId == mutable.value.peer)
+        val current = active()
+        current.delivery.acceptPeerChange(change.peerAccountId, change.safetyNumber)
+        mutable.value = mutable.value.copy(peerChange = null)
+        snapshot()
+        report(current.delivery.synchronize(maxPages = 3, maxOutgoing = 20))
+    }
+    fun cancelPeerChange() { mutable.value = mutable.value.copy(peerChange = null) }
     fun synchronize() = operation { report(active().delivery.synchronize(maxPages = 3, maxOutgoing = 20)) }
     fun send(text: String) = operation {
         val current = active()
@@ -196,7 +218,8 @@ internal class AuthController(private val application: Application, registryName
         save(fresh)
         server = endpoint
         profile = open(fresh)
-        mutable.value = mutable.value.copy(peer = "", messages = emptyList(), pendingIds = emptySet(), safetyNumber = "", queuedId = "")
+        mutable.value = mutable.value.copy(peer = "", messages = emptyList(), pendingIds = emptySet(), safetyNumber = "", queuedId = "",
+            peerChange = null)
     }
     private fun rotate() {
         profile?.store?.load()?.ended?.let { previousEnded = it }

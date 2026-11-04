@@ -27,11 +27,12 @@ data class DeliveryReport(val accepted: Int, val received: Int, val rejectedSequ
  * unacknowledged messages must be retried after a crash. Each instance is serialized.
  */
 private const val HELD = "delivery-held"
+private const val CHANGE_CLAIMS = "delivery-change-claims"
 
 class Delivery(private val vault: Vault, private val api: MessageApi,
                /** True for a send refusal that a retry cannot fix (the recipient moved to another device). Such a
                 * message is held durably and not sent again; the inbox and other outgoing messages still flow.
-                * Re-encrypting it for a confirmed new device is not implemented. */
+                * [acceptPeerChange] re-encrypts it for the confirmed new device and releases it. */
                private val held: (Exception) -> Boolean = { false }) {
     val signal = SignalClient(vault)
     @Synchronized fun establish(peer: String) {
@@ -47,6 +48,32 @@ class Delivery(private val vault: Vault, private val api: MessageApi,
         establish(peer)
         return signal.prepare(peer, text, id)
     }
+    /**
+     * The peer's CURRENT device from the server (a fresh claim) as a preview; nothing is trusted yet. The claim id is kept
+     * until [acceptPeerChange], so a retry after a lost answer gets the same bundle and spends no further prekeys.
+     */
+    @Synchronized fun checkPeerChange(peer: String): PeerChange {
+        Wire.id(peer)
+        return signal.previewChange(peer, changeBundle(peer))
+    }
+    /**
+     * After the user compared [confirmedSafetyNumber] with the peer: pins the new device, re-encrypts this peer's pending
+     * and held messages for it and releases them for the next [synchronize]. Returns how many were re-encrypted.
+     */
+    @Synchronized fun acceptPeerChange(peer: String, confirmedSafetyNumber: String): Int {
+        Wire.id(peer)
+        val bundle = changeBundle(peer)
+        val ids = signal.acceptChange(peer, bundle, confirmedSafetyNumber)
+        vault.transaction { r -> ids.forEach { r.delete(HELD, it) }; r.delete(CHANGE_CLAIMS, peer) }
+        return ids.size
+    }
+    private fun changeBundle(peer: String): ClaimedBundle {
+        val claimId = vault.transaction { r ->
+            r.read<String>(CHANGE_CLAIMS, peer) ?: UUID.randomUUID().toString().also { r.write(CHANGE_CLAIMS, peer, it) }
+        }
+        return api.claim(ClaimRequest(peer, claimId))
+    }
+
     /** Outgoing messages held after a refusal; they are never resent automatically. */
     fun heldIds(): Set<String> = vault.transaction { it.keys(HELD).toSet() }
 

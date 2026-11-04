@@ -4,7 +4,7 @@ import java.io.IOException
 import kotlin.test.*
 
 class DeliveryTest {
-    private class Server(val a: Participant, val b: Participant) {
+    private class Server(val a: Participant, var b: Participant) {
         val packets = mutableListOf<Incoming>()
         val sent = mutableListOf<Outgoing>()
         val claims = mutableListOf<ClaimRequest>()
@@ -88,6 +88,50 @@ class DeliveryTest {
         assertEquals(later, server.sent.last())
         assertEquals(attempts + 1, server.sent.size)
         assertEquals(setOf(original.clientMessageId), a.client.pendingIds())
+    }
+    @Test fun peerOnNewPhoneIsAcceptedOnlyWithItsSafetyNumberAndHeldTextIsReencrypted() {
+        val a = participant(); val b = participant(); val server = Server(a, b)
+        val sender = Delivery(a.vault, server.api(a)) { it.message == "RECIPIENT_DEVICE_CHANGED" }
+        sender.queue(b.device.accountId, "до переноса"); sender.synchronize()
+        assertEquals(1, Delivery(b.vault, server.api(b)).synchronize().received)
+        // The peer signs in on a new phone: same account, new device and identity.
+        val b2 = participant(b.device.accountId)
+        server.b = b2
+        server.recipientMoved = true
+        val held = sender.queue(b.device.accountId, "удержано 0123 қазақша")
+        assertEquals(listOf(held.clientMessageId), sender.synchronize().heldIds)
+        server.recipientMoved = false
+        Delivery(b2.vault, server.api(b2)).apply { queue(a.device.accountId, "с нового телефона"); assertEquals(1, synchronize().accepted) }
+        assertEquals(0, sender.synchronize().received) // Not accepted silently: new device is rejected, no ACK.
+        assertFalse(a.client.history().any { it.text == "с нового телефона" })
+
+        val change = sender.checkPeerChange(b.device.accountId)
+        assertTrue(change.changed)
+        assertEquals(b2.client.safetyNumber(a.device.accountId), change.safetyNumber)
+        val claims = server.claims.size
+        assertEquals(change, sender.checkPeerChange(b.device.accountId)) // Same claim id: same bundle.
+        assertEquals(server.claims[claims - 1].claimId, server.claims.last().claimId)
+
+        val before = a.vault.snapshot()
+        val wrong = change.safetyNumber.reversed()
+        assertFailsWith<IdentityChanged> { sender.acceptPeerChange(b.device.accountId, wrong) }
+        assertEquals(before.keys, a.vault.snapshot().keys)
+        assertEquals(held, a.client.pending().single())
+
+        assertEquals(1, sender.acceptPeerChange(b.device.accountId, change.safetyNumber))
+        assertTrue(sender.heldIds().isEmpty())
+        val reencrypted = a.client.pending().single()
+        assertEquals(held.clientMessageId, reencrypted.clientMessageId)
+        assertEquals(b2.device.deviceId, reencrypted.recipientDeviceId)
+        assertNotEquals(held.ciphertext, reencrypted.ciphertext)
+        assertFalse(sender.checkPeerChange(b.device.accountId).changed)
+
+        val report = sender.synchronize()
+        assertEquals(1, report.accepted); assertEquals(1, report.received)
+        assertEquals(1, a.client.history().count { it.text == "с нового телефона" })
+        Delivery(b2.vault, server.api(b2)).synchronize()
+        assertEquals(1, b2.client.history().count { it.text == "удержано 0123 қазақша" })
+        assertEquals(a.client.safetyNumber(b.device.accountId), b2.client.safetyNumber(a.device.accountId))
     }
     @Test fun lostAckRedeliversCommittedMessageWithoutSecondHistoryEntry() {
         val a = participant(); val b = participant(); val server = Server(a, b)

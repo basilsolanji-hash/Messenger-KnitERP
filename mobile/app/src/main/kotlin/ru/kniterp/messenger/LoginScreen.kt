@@ -163,6 +163,9 @@ import ru.kniterp.messenger.core.SignalClient
                     if (state.safetyNumber.isNotEmpty()) item {
                         TextButton(onClick = { showSafety = true }) { Text(stringResource(R.string.security)) }
                     }
+                    if (state.heldIds.isNotEmpty() || state.error == R.string.net_identity_changed || state.error == R.string.net_rejected) item {
+                        OutlinedButton(onClick = model::checkPeerChange, enabled = enabled) { Text(stringResource(R.string.net_peer_check)) }
+                    }
                     items(state.messages.filter { it.peerAccountId == state.peer }, key = { "message:${it.outgoing}:${it.id}" }) { message ->
                         Surface(color = if (message.outgoing) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant,
                             shape = MaterialTheme.shapes.medium) {
@@ -186,6 +189,16 @@ import ru.kniterp.messenger.core.SignalClient
                 item { OutlinedButton(onClick = model::logout, enabled = enabled) { Text(stringResource(R.string.auth_logout)) } }
             }
         }
+    }
+    state.peerChange?.let { change ->
+        AlertDialog(onDismissRequest = model::cancelPeerChange,
+            title = { Text(stringResource(if (change.changed) R.string.net_peer_new_title else R.string.security)) },
+            text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(stringResource(if (change.changed) R.string.net_peer_new_text else R.string.net_peer_unchanged))
+                Text(change.safetyNumber.chunked(5).chunked(4).joinToString("\n") { it.joinToString(" ") }, fontFamily = FontFamily.Monospace)
+            } },
+            confirmButton = { if (change.changed) TextButton(onClick = model::acceptPeerChange, enabled = enabled) { Text(stringResource(R.string.net_peer_confirm)) } },
+            dismissButton = { TextButton(onClick = model::cancelPeerChange) { Text(stringResource(R.string.close)) } })
     }
     if (showSafety) AlertDialog(onDismissRequest = { showSafety = false }, title = { Text(stringResource(R.string.security)) },
         text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

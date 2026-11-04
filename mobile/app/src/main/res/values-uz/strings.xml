@@ -114,4 +114,10 @@
     <string name="auth_new_login">Qayta kirish · tarix saqlanadi</string>
     <string name="auth_chat_notice">Yopiq sinov: suhbatdosh akkaunti ID sini kiriting. Telefon raqami orqali kontaktlar keyin ulanadi.</string>
     <string name="auth_done_restored">Akkauntga kirdingiz</string>
+    <string name="net_peer_check">Suhbatdoshning yangi qurilmasini tekshirish</string>
+    <string name="net_peer_new_title">Suhbatdoshning yangi qurilmasi</string>
+    <string name="net_peer_new_text">Suhbatdosh qaytadan yoki boshqa telefondan kirdi. Barcha 60 raqamni suhbatdosh bilan shaxsan yoki qo‘ng‘iroq orqali solishtiring. Faqat raqamlar mos kelsa tasdiqlang: aks holda xabarlaringizni begona odam o‘qishi mumkin.</string>
+    <string name="net_peer_confirm">Raqamlar mos — tasdiqlash</string>
+    <string name="net_peer_unchanged">Suhbatdoshning qurilmasi o‘zgarmagan. Joriy xavfsizlik kodi:</string>
+    <string name="net_peer_accepted">Yangi qurilma tasdiqlandi. Ushlab turilgan xabarlar yuborish navbatiga qo‘yildi.</string>
 </resources>

@@ -60,24 +60,73 @@ class SignalClient(private val vault: Vault) {
 
     /** expectedAccountId comes from the selected contact, never from the untrusted response. */
     fun establish(expectedAccountId: String, bundle: ClaimedBundle) = vault.transaction { r ->
-        Wire.id(expectedAccountId)
-        require(bundle.accountId == expectedAccountId && bundle.signalDeviceId == 1)
-        require(bundle.registrationId in 1..16383)
-        require(listOf(bundle.preKey.id, bundle.signedPreKeyId, bundle.pqPreKey.id).all { it in 1..0xffffff })
-        val me = local(r)
-        require(me.accountId != expectedAccountId) { "Self-chat is not implemented" }
+        val me = checkBundle(r, expectedAccountId, bundle)
         val peer = bundle.device()
         checkPeer(r, peer)
         val store = SignalStore(r)
         val remote = address(expectedAccountId)
         val identity = IdentityKey(Wire.bytes(bundle.identityKey))
         if (!store.isTrustedIdentity(remote, identity, IdentityKeyStore.Direction.SENDING)) throw IdentityChanged()
-        // libsignal checks ECC and PQ signatures; server validation cannot replace this.
-        val keyBundle = PreKeyBundle(bundle.registrationId, 1, bundle.preKey.id, ECPublicKey(Wire.bytes(bundle.preKey.publicKey)),
-            bundle.signedPreKeyId, ECPublicKey(Wire.bytes(bundle.signedPreKey)), Wire.bytes(bundle.signature), identity,
-            bundle.pqPreKey.id, KEMPublicKey(Wire.bytes(bundle.pqPreKey.publicKey)), Wire.bytes(bundle.pqPreKey.signature))
-        SessionBuilder(store, remote, address(me.accountId)).process(keyBundle)
+        SessionBuilder(store, remote, address(me.accountId)).process(keyBundle(bundle, identity))
         r.write("peer", peer.accountId, peer)
+    }
+    private fun checkBundle(r: Records, expectedAccountId: String, bundle: ClaimedBundle): Device {
+        Wire.id(expectedAccountId)
+        require(bundle.accountId == expectedAccountId && bundle.signalDeviceId == 1)
+        require(bundle.registrationId in 1..16383)
+        require(listOf(bundle.preKey.id, bundle.signedPreKeyId, bundle.pqPreKey.id).all { it in 1..0xffffff })
+        val me = local(r)
+        require(me.accountId != expectedAccountId) { "Self-chat is not implemented" }
+        return me
+    }
+    // libsignal checks ECC and PQ signatures; server validation cannot replace this.
+    private fun keyBundle(bundle: ClaimedBundle, identity: IdentityKey) = PreKeyBundle(bundle.registrationId, 1, bundle.preKey.id,
+        ECPublicKey(Wire.bytes(bundle.preKey.publicKey)), bundle.signedPreKeyId, ECPublicKey(Wire.bytes(bundle.signedPreKey)),
+        Wire.bytes(bundle.signature), identity, bundle.pqPreKey.id, KEMPublicKey(Wire.bytes(bundle.pqPreKey.publicKey)),
+        Wire.bytes(bundle.pqPreKey.signature))
+
+    /**
+     * What accepting [bundle] as the peer's current device would mean, without trusting or storing anything:
+     * whether device or identity differ from the pinned ones, and the safety number the user must compare with the peer.
+     */
+    fun previewChange(expectedAccountId: String, bundle: ClaimedBundle): PeerChange = vault.transaction { r ->
+        checkBundle(r, expectedAccountId, bundle)
+        val identity = IdentityKey(Wire.bytes(bundle.identityKey))
+        val pinned = SignalStore(r).getIdentity(address(expectedAccountId))
+        val changed = r.read<Device>("peer", expectedAccountId) != bundle.device() ||
+            pinned == null || !MessageDigest.isEqual(pinned.serialize(), identity.serialize())
+        PeerChange(expectedAccountId, changed, fingerprintWith(r, expectedAccountId, identity).displayableFingerprint.displayText)
+    }
+
+    /**
+     * Only after the user compared [confirmedSafetyNumber] with the peer. Pins the new identity and device, starts a fresh
+     * session from the verified bundle, and re-encrypts this peer's pending messages for the new device under the SAME
+     * message ids (the server stored nothing for a refused send). Returns the re-encrypted ids. All or nothing.
+     */
+    fun acceptChange(expectedAccountId: String, bundle: ClaimedBundle, confirmedSafetyNumber: String): List<String> = vault.transaction { r ->
+        val me = checkBundle(r, expectedAccountId, bundle)
+        val identity = IdentityKey(Wire.bytes(bundle.identityKey))
+        val number = fingerprintWith(r, expectedAccountId, identity).displayableFingerprint.displayText
+        if (!MessageDigest.isEqual(number.toByteArray(), confirmedSafetyNumber.toByteArray())) throw IdentityChanged()
+        val peer = bundle.device()
+        val store = SignalStore(r)
+        val remote = address(expectedAccountId)
+        store.deleteAllSessions(remote.name)
+        r.put("identity", remote.name, identity.serialize())
+        SessionBuilder(store, remote, address(me.accountId)).process(keyBundle(bundle, identity))
+        r.write("peer", peer.accountId, peer)
+        val cipher = SessionCipher(store, address(me.accountId), remote)
+        r.keys("pending").filter { requireNotNull(r.read<Outgoing>("pending", it)).recipientAccountId == expectedAccountId }.map { id ->
+            val stored = requireNotNull(r.read<StoredOutgoing>("outgoing", id))
+            val content = stored.content.copy(recipient = peer)
+            val encoded = Wire.json.encodeToString(content).toByteArray(Charsets.UTF_8)
+            val sealed = try { cipher.encrypt(encoded) } finally { encoded.fill(0) }
+            val outgoing = Outgoing(id, peer.accountId, peer.deviceId, peer.generation, sealed.type, Wire.base64(sealed.serialize()))
+            require(Wire.bytes(outgoing.ciphertext).size <= MAX_CIPHERTEXT_BYTES)
+            r.write("outgoing", id, StoredOutgoing(outgoing, content))
+            r.write("pending", id, outgoing)
+            id
+        }
     }
     private fun checkPeer(r: Records, peer: Device) {
         val prior = r.read<Device>("peer", peer.accountId)
@@ -166,11 +215,12 @@ class SignalClient(private val vault: Vault) {
     }
     private fun fingerprint(r: Records, peerAccountId: String): org.signal.libsignal.protocol.fingerprint.Fingerprint {
         Wire.id(peerAccountId)
+        return fingerprintWith(r, peerAccountId, requireNotNull(SignalStore(r).getIdentity(address(peerAccountId))) { "No pinned identity" })
+    }
+    private fun fingerprintWith(r: Records, peerAccountId: String, remote: IdentityKey): org.signal.libsignal.protocol.fingerprint.Fingerprint {
         val me = local(r)
-        val store = SignalStore(r)
-        val remote = requireNotNull(store.getIdentity(address(peerAccountId))) { "No pinned identity" }
         return NumericFingerprintGenerator(5200).createFor(2, me.accountId.toByteArray(Charsets.UTF_8),
-            store.identityKeyPair.publicKey, peerAccountId.toByteArray(Charsets.UTF_8), remote)
+            SignalStore(r).identityKeyPair.publicKey, Wire.id(peerAccountId).toByteArray(Charsets.UTF_8), remote)
     }
     companion object {
         const val MAX_TEXT_BYTES = 16 * 1024

@@ -114,4 +114,10 @@
     <string name="auth_new_login">Увайсці нанова · гісторыя захаваецца</string>
     <string name="auth_chat_notice">Закрыты тэст: увядзіце ID акаўнта суразмоўцы. Кантакты па нумары будуць падключаны пазней.</string>
     <string name="auth_done_restored">Вы ўвайшлі ў акаўнт</string>
+    <string name="net_peer_check">Праверыць новую прыладу суразмоўцы</string>
+    <string name="net_peer_new_title">Новая прылада суразмоўцы</string>
+    <string name="net_peer_new_text">Суразмоўца ўвайшоў нанова або на іншым тэлефоне. Звярыце ўсе 60 лічбаў з суразмоўцам асабіста або па званку. Пацвярджайце, толькі калі лічбы супадаюць: інакш вашы паведамленні можа чытаць старонні.</string>
+    <string name="net_peer_confirm">Лічбы супалі — пацвердзіць</string>
+    <string name="net_peer_unchanged">Прылада суразмоўцы не мянялася. Бягучы код бяспекі:</string>
+    <string name="net_peer_accepted">Новая прылада пацверджана. Затрыманыя паведамленні пастаўлены ў чаргу адпраўкі.</string>
 </resources>

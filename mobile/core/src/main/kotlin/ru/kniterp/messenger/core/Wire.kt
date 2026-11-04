@@ -61,6 +61,9 @@ data class Device(val accountId: String, val deviceId: String, val generation: I
 }
 @Serializable internal data class Receipt(val digest: String, val messageId: String)
 
+/** [changed]: the server's current device or identity differs from the pinned one. [safetyNumber] is for that device. */
+data class PeerChange(val peerAccountId: String, val changed: Boolean, val safetyNumber: String)
+
 class IdentityChanged : IllegalStateException("Код безопасности изменился. Отправка остановлена.")
 class DeviceChanged : IllegalStateException("Устройство собеседника изменилось. Нужна повторная проверка.")
 class EnvelopeMismatch : IllegalArgumentException("Encrypted message does not match its envelope")
