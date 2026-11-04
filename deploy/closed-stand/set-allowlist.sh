@@ -10,14 +10,23 @@ DROPIN=$DROPIN_DIR/10-config-dir.conf
 TLS=/etc/os-communications-tls
 [ "$(id -u)" = 0 ] || { echo 'Run as root.' >&2; exit 1; }
 [ $# -gt 0 ] || { sed -n '2,4p' "$0" >&2; exit 2; }
+# Only --tester/--operator pairs reach the generator; --output, --bind and --hostname stay fixed here.
+args=()
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --tester|--operator) [ $# -ge 2 ] || { echo "$1 needs an IP or CIDR." >&2; exit 2; }; args+=("$1" "$2"); shift 2 ;;
+        *) echo "Unknown argument: $1 (only --tester and --operator)." >&2; exit 2 ;;
+    esac
+done
 
 HOST=$(grep -m1 '^AllowedHosts=' "$ROOT/.env" | cut -d= -f2-)
-last=$(ls -d /etc/os-communications-https-v* 2>/dev/null | sed 's/.*-v//' | sort -n | tail -1)
+# The first run on a new server has no earlier directory: that is version 0, not an error.
+last=$(shopt -s nullglob; for d in /etc/os-communications-https-v*; do echo "${d##*-v}"; done | sort -n | tail -1)
 NEW=/etc/os-communications-https-v$(( ${last:-0} + 1 ))
 
 python3 "$ROOT/scripts/prepare-closed-https.py" --hostname "$HOST" \
     --certificate $TLS/fullchain.pem --private-key $TLS/current.key --backup-certificate $TLS/backup-public.pem \
-    --bind 0.0.0.0 --output "$NEW" "$@"
+    --bind 0.0.0.0 --output "$NEW" "${args[@]}"
 chgrp os-closed-https "$NEW" "$NEW/nginx.conf" "$NEW/nginx-http.conf"
 chmod 0750 "$NEW"; chmod 0640 "$NEW/nginx.conf" "$NEW/nginx-http.conf"
 chown os-closed-https:os-closed-https "$NEW/runtime"; chmod 0700 "$NEW/runtime"
