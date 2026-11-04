@@ -54,7 +54,8 @@ import ru.kniterp.messenger.core.SignalClient
         state.error?.let { item { Text(stringResource(it), color = MaterialTheme.colorScheme.error) } }
         view.error?.let { error -> item { Text(errorText(error, view.attemptsLeft, view.retryAtMillis, now), color = MaterialTheme.colorScheme.error) } }
         state.notice?.let { item { Text(stringResource(it)) } }
-        if (state.error != null && !state.ready && state.origin.isNotEmpty()) item {
+        // A temporary network failure is retried, never answered by abandoning the activated device.
+        if (state.error != null && state.error != R.string.auth_err_network && !state.ready && state.origin.isNotEmpty()) item {
             OutlinedButton(onClick = model::newLogin, enabled = enabled) { Text(stringResource(R.string.auth_new_login)) }
         }
 
@@ -132,7 +133,8 @@ import ru.kniterp.messenger.core.SignalClient
                 }
                 item { Text(stringResource(when (view.newAccount) { false -> R.string.auth_done_transfer; true -> R.string.auth_done_new; null -> R.string.auth_done_restored }),
                     style = MaterialTheme.typography.titleMedium) }
-                item { Text(stringResource(R.string.auth_account) + "\n" + state.accountId, fontFamily = FontFamily.Monospace) }
+                // Selectable: FLAG_SECURE forbids screenshots, and the 36-character id is not a secret.
+                item { SelectionContainer { Text(stringResource(R.string.auth_account) + "\n" + state.accountId, fontFamily = FontFamily.Monospace) } }
                 if (state.ready) {
                 item { Text(stringResource(R.string.auth_offer_pin), style = MaterialTheme.typography.bodySmall) }
                 item { OutlinedTextField(currentPin, { if (it.length <= 6 && it.all { c -> c in '0'..'9' }) currentPin = it },
