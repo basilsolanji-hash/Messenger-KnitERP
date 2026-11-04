@@ -5,10 +5,10 @@
     <string name="messenger">Байланыс</string>
     <string name="chats">Чаттар</string>
     <string name="settings">Баптаулар</string>
-    <string name="test_chat">Сынақ сұхбаттасы</string>
+    <string name="test_chat">Сынақ әңгімелесушісі</string>
     <string name="local_demo">Жергілікті сынақ · осы телефонда</string>
     <string name="demo_description">Екі профильдің жергілікті сынағы. Екі телефон арасында хат алмасу үшін баптаулардан «Телефон нөмірі арқылы кіру» бөлімін ашыңыз.</string>
-    <string name="demo_welcome">Сәлем! Бұл — Ось сынақ чаты. Хабарлама жазыңыз — шифрлауды және осы телефонда тарихтың сақталуын тексереміз.</string>
+    <string name="demo_welcome">Сәлем! Бұл — «Ось» сынақ чаты. Хабарлама жазыңыз — шифрлауды және осы телефонда тарихтың сақталуын тексереміз.</string>
     <string name="demo_reply">Алынды және шифры ашылды. Тарих құрылғыда сақталды 🔒</string>
     <string name="message_hint">Хабарлама</string>
     <string name="send">Жіберу</string>
@@ -27,7 +27,7 @@
     <string name="send_error">Жіберуді аяқтау мүмкін болмады. Сақталған кезек келесі іске қосылғанда тексеріледі.</string>
     <string name="loading">Қорғалған қойма ашылуда…</string>
     <string name="local_delivery">Жергілікті сынақта жеткізілді</string>
-    <string name="logo_description">Ось логотипі</string>
+    <string name="logo_description">«Ось» логотипі</string>
     <string name="net_title">Сервердің жабық сынағы</string>
     <string name="net_notice">Жасанды деректерге арналған жөндеу режимі: 15 минуттық сеансты оператор береді. Жабық сынақ үшін «Телефон нөмірі арқылы кіру» бөлімін пайдаланыңыз.</string>
     <string name="net_step_request">1. Операторға сұрау</string>
@@ -44,7 +44,7 @@
     <string name="net_expired">Сеанс аяқталды. Осы телефонға жаңа сеансты оператордан сұраңыз.</string>
     <string name="net_manual">Хабарларды алу үшін синхрондау батырмасын басыңыз. Фондық хабарландырулар әлі қосылмаған.</string>
     <string name="net_sync">Синхрондау</string>
-    <string name="net_peer">Сынақтағы сұхбаттасушының ID-і (UUID)</string>
+    <string name="net_peer">Сынақтағы әңгімелесушінің ID-і (UUID)</string>
     <string name="net_open">Чатты ашу</string>
     <string name="net_queued">Телефондағы кезекте</string>
     <string name="net_accepted">Сервер қабылдады · оқылғаны расталмаған</string>
@@ -53,8 +53,8 @@
     <string name="net_rejected">Кейбір хабарлар тексеруден өтпеді. Олар үшін растау жіберілмеді.</string>
     <string name="net_identity_changed">Қауіпсіздік коды немесе құрылғы өзгерді. Жіберу тоқтатылды.</string>
     <string name="net_network_error">Желі немесе TLS тексеру қатесі. Сақталған кезек телефонда қалады.</string>
-    <string name="net_bad_config">Сеанс JSON-ын, сұхбаттасушы ID-ін және телефон уақытын тексеріңіз. Сеанс осы құрылғының кілттеріне сай болуы керек.</string>
-    <string name="net_server_error">Сервер сұрауды қабылдамады. Кезек сақталған; сеанс пен сұхбаттасушы күйін тексеріңіз.</string>
+    <string name="net_bad_config">Сеанс JSON-ын, әңгімелесуші ID-ін және телефон уақытын тексеріңіз. Сеанс осы құрылғының кілттеріне сай болуы керек.</string>
+    <string name="net_server_error">Сервер сұрауды қабылдамады. Кезек сақталған; сеанс пен әңгімелесуші күйін тексеріңіз.</string>
     <string name="net_operation_error">Операция аяқталмады. Кілттер мен деректер автоматты түрде жойылған жоқ.</string>
     <string name="net_target">Қосылу алдындағы сервер:</string>
     <string name="auth_open">Телефон нөмірі арқылы кіру</string>
@@ -74,9 +74,9 @@
     <string name="auth_resend">Кодты қайта жіберу</string>
     <string name="auth_resend_in">%1$d с кейін қайта жіберу</string>
     <string name="auth_change_number">Нөмірді өзгерту</string>
-    <string name="auth_operator_request">Тест стендінің операторына арналған сұрау нөмірі (құпия емес):</string>
+    <string name="auth_operator_request">Сынақ стендінің операторына арналған сұрау нөмірі (құпия емес):</string>
     <string name="auth_pin_title">Аккаунттың PIN-коды</string>
-    <string name="auth_pin_no_recovery">Ұмытылған PIN-ды қалпына келтіру мүмкін емес: қолдау қызметі оны алып тастай алмайды.</string>
+    <string name="auth_pin_no_recovery">Ұмытылған PIN-ді қалпына келтіру мүмкін емес: қолдау қызметі оны алып тастай алмайды.</string>
     <string name="auth_pin_hint">PIN — 6 сан</string>
     <string name="auth_done_new">Аккаунт жасалды</string>
     <string name="auth_done_transfer">Аккаунт осы телефонға көшірілді</string>
@@ -84,15 +84,15 @@
     <string name="auth_offer_pin">Кіргеннен кейін 10 минут ішінде PIN қосыңыз: ол нөмірді бөтен телефонға көшіруден қорғайды.</string>
     <string name="auth_current_pin">Ағымдағы PIN</string>
     <string name="auth_new_pin">Жаңа PIN</string>
-    <string name="auth_set_pin">PIN орнату не өзгерту</string>
+    <string name="auth_set_pin">PIN орнату немесе өзгерту</string>
     <string name="auth_disable_pin">PIN өшіру</string>
     <string name="auth_logout">Шығу</string>
     <string name="auth_pin_saved">PIN сақталды</string>
     <string name="auth_pin_disabled">PIN өшірілді</string>
     <string name="auth_ended_revoked">Аккаунт басқа телефонда іске қосылды. Бұрынғы хат алмасу жаңа кіруде көрсетілмейді.</string>
-    <string name="auth_ended_expired">Сессия мерзімі өтті. Қайта кіріңіз.</string>
+    <string name="auth_ended_expired">Сеанс мерзімі өтті. Қайта кіріңіз.</string>
     <string name="auth_ended_logout">Сіз аккаунттан шықтыңыз. Бұрынғы хат алмасу жаңа кіруде көрсетілмейді.</string>
-    <string name="auth_ended_security">Сессия қауіпсіздік мақсатында қайтарылды. Қайта кіріңіз.</string>
+    <string name="auth_ended_security">Сеанс қауіпсіздік мақсатында тоқтатылды. Қайта кіріңіз.</string>
     <string name="auth_err_phone">Нөмірді тексеріңіз.</string>
     <string name="auth_err_region">Бұл ел үшін кіру әзірге қолжетімсіз.</string>
     <string name="auth_err_not_mobile">Ұялы телефон нөмірі қажет.</string>
@@ -106,9 +106,9 @@
     <string name="auth_err_device">Бұл телефонның кілттері қабылданбады. Кіруді қайта бастаңыз.</string>
     <string name="auth_err_network">Сервермен байланыс жоқ немесе TLS тексеру қатесі. Қайталаңыз.</string>
     <string name="auth_err_server">Сервер сұрауды қабылдамады.</string>
-    <string name="auth_err_pin_required">Ағымдағы PIN-ды енгізіңіз.</string>
+    <string name="auth_err_pin_required">Ағымдағы PIN-ді енгізіңіз.</string>
     <string name="auth_err_pin_simple">PIN тым қарапайым. Бірдей сандар мен тізбектерді қолданбаңыз.</string>
-    <string name="auth_err_reauth">PIN-ды SMS арқылы кіргеннен кейін 10 минут ішінде ғана қосуға болады.</string>
+    <string name="auth_err_reauth">PIN-ді SMS арқылы кіргеннен кейін 10 минут ішінде ғана қосуға болады.</string>
     <string name="auth_attempts_left">Қалған әрекет саны: %1$d</string>
     <string name="auth_retry_activation">Қосылуды аяқтау</string>
     <string name="auth_new_login">Қайта кіру</string>
@@ -120,4 +120,5 @@
     <string name="net_peer_confirm">Цифрлар сәйкес — растау</string>
     <string name="net_peer_unchanged">Әңгімелесушінің құрылғысы өзгермеген. Ағымдағы қауіпсіздік коды:</string>
     <string name="net_peer_accepted">Жаңа құрылғы расталды. Ұсталған хабарлар жіберу кезегіне қойылды.</string>
+    <string name="net_bad_peer">Әңгімелесушінің ID-і қате. Басқа аккаунттың ID-і керек: 36 таңба.</string>
 </resources>

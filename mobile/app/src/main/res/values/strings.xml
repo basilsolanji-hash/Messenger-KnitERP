@@ -8,7 +8,7 @@
     <string name="test_chat">Тестовый собеседник</string>
     <string name="local_demo">Локальный тест · на этом телефоне</string>
     <string name="demo_description">Локальный тест двух профилей. Для переписки двух телефонов откройте «Вход по номеру телефона» в настройках.</string>
-    <string name="demo_welcome">Привет! Это тестовый чат Ось. Напишите сообщение — проверим шифрование и сохранение истории на этом телефоне.</string>
+    <string name="demo_welcome">Привет! Это тестовый чат «Ось». Напишите сообщение — проверим шифрование и сохранение истории на этом телефоне.</string>
     <string name="demo_reply">Получено и расшифровано. История сохранена на устройстве 🔒</string>
     <string name="message_hint">Сообщение</string>
     <string name="send">Отправить</string>
@@ -27,7 +27,7 @@
     <string name="send_error">Не удалось завершить отправку. Сохранённая очередь будет проверена при следующем запуске.</string>
     <string name="loading">Открываем защищённое хранилище…</string>
     <string name="local_delivery">Доставлено в локальном тесте</string>
-    <string name="logo_description">Логотип Ось</string>
+    <string name="logo_description">Логотип «Ось»</string>
     <string name="net_title">Закрытый тест сервера</string>
     <string name="net_notice">Отладочный режим для синтетических данных: сессию на 15 минут выдаёт оператор. Для закрытого теста используйте «Вход по номеру телефона».</string>
     <string name="net_step_request">1. Запрос для оператора</string>
@@ -120,4 +120,5 @@
     <string name="net_peer_confirm">Цифры совпали — подтвердить</string>
     <string name="net_peer_unchanged">Устройство собеседника не менялось. Текущий код безопасности:</string>
     <string name="net_peer_accepted">Новое устройство подтверждено. Удержанные сообщения поставлены в очередь отправки.</string>
+    <string name="net_bad_peer">Неверный ID собеседника. Нужен ID другого аккаунта: 36 символов.</string>
 </resources>

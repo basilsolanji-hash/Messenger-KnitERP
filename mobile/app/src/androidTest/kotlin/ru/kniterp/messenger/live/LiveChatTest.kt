@@ -19,6 +19,8 @@ class LiveChatTest {
     @Test fun textBothWaysOfflineQueueLostResponsesAndRestartWithoutDuplicates() {
         val a = Phone(); val b = Phone()
         val aId = a.register(); val bId = b.register()
+        assertEquals(R.string.net_bad_peer, a.act { selectPeer("abc") }.error)
+        assertEquals(R.string.net_bad_peer, a.act { selectPeer(aId) }.error) // Own id.
         a.open(bId); b.open(aId)
 
         assertNull(a.send("Привет 1 — тест 0123456789").error)

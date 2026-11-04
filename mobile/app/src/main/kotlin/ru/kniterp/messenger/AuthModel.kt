@@ -150,8 +150,9 @@ internal class AuthController(private val application: Application, registryName
     }
     fun selectPeer(peer: String) = operation {
         val current = active()
-        Wire.id(peer); require(peer != current.signal.localDevice().accountId)
-        mutable.value = mutable.value.copy(peer = peer, peerChange = null)
+        val valid = runCatching { Wire.id(peer) }.isSuccess && peer != current.signal.localDevice().accountId
+        // Its own message instead of the generic configuration text of the old operator mode.
+        mutable.value = if (valid) mutable.value.copy(peer = peer, peerChange = null) else mutable.value.copy(error = R.string.net_bad_peer)
     }
     /** Fetches the peer's current device for comparison of the new safety number; trusts nothing. */
     fun checkPeerChange() = operation {

@@ -8,7 +8,7 @@
     <string name="test_chat">Тэставы суразмоўца</string>
     <string name="local_demo">Лакальны тэст · на гэтым тэлефоне</string>
     <string name="demo_description">Лакальны тэст двух профіляў. Для перапіскі двух тэлефонаў адкрыйце «Уваход па нумары тэлефона» ў наладах.</string>
-    <string name="demo_welcome">Прывітанне! Гэта тэставы чат Ось. Напішыце паведамленне — праверым шыфраванне і захаванне гісторыі на гэтым тэлефоне.</string>
+    <string name="demo_welcome">Прывітанне! Гэта тэставы чат «Ось». Напішыце паведамленне — праверым шыфраванне і захаванне гісторыі на гэтым тэлефоне.</string>
     <string name="demo_reply">Атрымана і расшыфравана. Гісторыя захавана на прыладзе 🔒</string>
     <string name="message_hint">Паведамленне</string>
     <string name="send">Адправіць</string>
@@ -27,7 +27,7 @@
     <string name="send_error">Не ўдалося завяршыць адпраўку. Захаваная чарга будзе праверана пры наступным запуску.</string>
     <string name="loading">Адкрываем абароненае сховішча…</string>
     <string name="local_delivery">Дастаўлена ў лакальным тэсце</string>
-    <string name="logo_description">Лагатып Ось</string>
+    <string name="logo_description">Лагатып «Ось»</string>
     <string name="net_title">Закрыты тэст сервера</string>
     <string name="net_notice">Адладачны рэжым для сінтэтычных даных: сесію на 15 хвілін выдае аператар. Для закрытага тэсту выкарыстоўвайце «Уваход па нумары тэлефона».</string>
     <string name="net_step_request">1. Запыт для аператара</string>
@@ -41,7 +41,7 @@
     <string name="net_my_id">Мой ID тэставага акаўнта</string>
     <string name="net_copy_id">Капіяваць мой ID</string>
     <string name="net_active">Тэставая сесія дзейнічае</string>
-    <string name="net_expired">Сесія скончылася. Запытайце новую сесію для гэтага ж тэлефона.</string>
+    <string name="net_expired">Сесія скончылася. Запытайце ў аператара новую сесію для гэтага ж тэлефона.</string>
     <string name="net_manual">Для атрымання паведамленняў націсніце кнопку сінхранізацыі. Фонавыя апавяшчэнні яшчэ не падключаны.</string>
     <string name="net_sync">Сінхранізаваць</string>
     <string name="net_peer">ID тэставага суразмоўцы (UUID)</string>
@@ -120,4 +120,5 @@
     <string name="net_peer_confirm">Лічбы супалі — пацвердзіць</string>
     <string name="net_peer_unchanged">Прылада суразмоўцы не мянялася. Бягучы код бяспекі:</string>
     <string name="net_peer_accepted">Новая прылада пацверджана. Затрыманыя паведамленні пастаўлены ў чаргу адпраўкі.</string>
+    <string name="net_bad_peer">Няправільны ID суразмоўцы. Патрэбны ID іншага акаўнта: 36 сімвалаў.</string>
 </resources>
