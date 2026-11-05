@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Replace the HTTPS allowlist: builds a NEW config directory, tests it with the unit's own
 # capability, switches the dedicated unit through a drop-in and rolls back if it does not start.
-# Usage: set-allowlist.sh --tester IP [--tester IP]... [--operator IP]...
+# Usage: set-allowlist.sh --tester IP [--tester IP]... [--operator IP]... [--admin IP]...
 set -euo pipefail
 ROOT=/opt/os-communications
 UNIT=os-communications-https.service
@@ -10,12 +10,12 @@ DROPIN=$DROPIN_DIR/10-config-dir.conf
 TLS=/etc/os-communications-tls
 [ "$(id -u)" = 0 ] || { echo 'Run as root.' >&2; exit 1; }
 [ $# -gt 0 ] || { sed -n '2,4p' "$0" >&2; exit 2; }
-# Only --tester/--operator pairs reach the generator; --output, --bind and --hostname stay fixed here.
+# Only --tester/--operator/--admin pairs reach the generator; --output, --bind and --hostname stay fixed here.
 args=()
 while [ $# -gt 0 ]; do
     case "$1" in
-        --tester|--operator) [ $# -ge 2 ] || { echo "$1 needs an IP or CIDR." >&2; exit 2; }; args+=("$1" "$2"); shift 2 ;;
-        *) echo "Unknown argument: $1 (only --tester and --operator)." >&2; exit 2 ;;
+        --tester|--operator|--admin) [ $# -ge 2 ] || { echo "$1 needs an IP or CIDR." >&2; exit 2; }; args+=("$1" "$2"); shift 2 ;;
+        *) echo "Unknown argument: $1 (only --tester, --operator and --admin)." >&2; exit 2 ;;
     esac
 done
 

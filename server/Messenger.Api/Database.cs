@@ -11,6 +11,10 @@ public sealed class Account
     public string? PinHash { get; set; }
     public int PinFailures { get; set; }
     public DateTimeOffset? PinLockedUntil { get; set; }
+    public DateTimeOffset? CreatedAt { get; set; } // Null for accounts created before this column existed.
+    // Suspended by a service administrator: sessions revoked, sign-in and delivery refused until resumed.
+    public DateTimeOffset? SuspendedAt { get; set; }
+    public string? SuspendReason { get; set; }
 }
 public sealed class Device
 {
@@ -127,6 +131,44 @@ public sealed class RefreshToken
     public Guid? ReplacedBy { get; set; }
 }
 
+public enum AdminRole { Support = 1, Auditor = 2, Admin = 3 }
+public sealed class AdminUser
+{
+    public Guid Id { get; set; }
+    public string Login { get; set; } = "";
+    public AdminRole Role { get; set; }
+    public string PasswordHash { get; set; } = "";
+    public string TotpSecret { get; set; } = ""; // Data Protection ciphertext of the RFC 6238 key.
+    public long TotpLastStep { get; set; } // A code is accepted once: replay inside the window is refused.
+    public int FailedLogins { get; set; }
+    public DateTimeOffset? LockedUntil { get; set; }
+    public bool Disabled { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+}
+public sealed class AdminSession
+{
+    public byte[] TokenHash { get; set; } = []; // SHA-256 of the cookie value; the value itself is never stored.
+    public Guid AdminId { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset LastSeenAt { get; set; }
+    public DateTimeOffset ExpiresAt { get; set; }
+    public DateTimeOffset? RevokedAt { get; set; }
+    public string Network { get; set; } = "";
+}
+/// <summary>Append-only: the API never updates or deletes rows (see migration AdminPanel).</summary>
+public sealed class AdminAudit
+{
+    public long Id { get; set; }
+    public DateTimeOffset At { get; set; }
+    public Guid? AdminId { get; set; }
+    public string Login { get; set; } = "";
+    public string Remote { get; set; } = "";
+    public string Action { get; set; } = "";
+    public string Target { get; set; } = "";
+    public string Detail { get; set; } = "";
+    public bool Success { get; set; }
+}
+
 public sealed class MessengerDb(DbContextOptions<MessengerDb> options) : DbContext(options)
 {
     public DbSet<Account> Accounts => Set<Account>();
@@ -140,9 +182,31 @@ public sealed class MessengerDb(DbContextOptions<MessengerDb> options) : DbConte
     public DbSet<AuthCounter> AuthCounters => Set<AuthCounter>();
     public DbSet<RefreshFamily> RefreshFamilies => Set<RefreshFamily>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<AdminUser> AdminUsers => Set<AdminUser>();
+    public DbSet<AdminSession> AdminSessions => Set<AdminSession>();
+    public DbSet<AdminAudit> AdminAudit => Set<AdminAudit>();
 
     protected override void OnModelCreating(ModelBuilder m)
     {
+        m.Entity<Account>().Property(x => x.SuspendReason).HasMaxLength(200);
+        m.Entity<AdminUser>().ToTable("admin_users").HasKey(x => x.Id);
+        m.Entity<AdminUser>().HasIndex(x => x.Login).IsUnique();
+        m.Entity<AdminUser>().Property(x => x.Login).HasMaxLength(64);
+        m.Entity<AdminUser>().Property(x => x.PasswordHash).HasMaxLength(256);
+        m.Entity<AdminUser>().Property(x => x.TotpSecret).HasMaxLength(1024);
+        m.Entity<AdminSession>().ToTable("admin_sessions").HasKey(x => x.TokenHash);
+        m.Entity<AdminSession>().HasOne<AdminUser>().WithMany().HasForeignKey(x => x.AdminId).OnDelete(DeleteBehavior.Cascade);
+        m.Entity<AdminSession>().HasIndex(x => x.AdminId);
+        m.Entity<AdminSession>().Property(x => x.Network).HasMaxLength(64);
+        m.Entity<AdminAudit>().ToTable("admin_audit").HasKey(x => x.Id);
+        m.Entity<AdminAudit>().Property(x => x.Id).UseIdentityByDefaultColumn();
+        m.Entity<AdminAudit>().HasIndex(x => x.At);
+        m.Entity<AdminAudit>().HasIndex(x => x.Action);
+        m.Entity<AdminAudit>().Property(x => x.Login).HasMaxLength(64);
+        m.Entity<AdminAudit>().Property(x => x.Remote).HasMaxLength(64);
+        m.Entity<AdminAudit>().Property(x => x.Action).HasMaxLength(48);
+        m.Entity<AdminAudit>().Property(x => x.Target).HasMaxLength(128);
+        m.Entity<AdminAudit>().Property(x => x.Detail).HasMaxLength(400);
         m.Entity<Account>().ToTable("accounts").HasKey(x => x.Id);
         m.Entity<Account>().Property(x => x.DisplayName).HasMaxLength(128);
         m.Entity<Device>().ToTable("devices").HasKey(x => x.Id);

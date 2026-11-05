@@ -28,6 +28,7 @@ builder.Services.AddSingleton<ConnectionRegistry>();
 builder.Services.AddSingleton<AuthSecrets>();
 builder.Services.AddSingleton<PhonePolicy>();
 builder.Services.AddSingleton<PinHasher>();
+builder.Services.AddSingleton<AdminCredentials>();
 builder.Services.AddScoped<AuthService>();
 switch (builder.Configuration["Auth:Sms:Provider"])
 {
@@ -129,7 +130,7 @@ if (enableOperatorEndpoints)
     {
         Access.ProvisioningKey(context, config);
         ValidateProvision(request);
-        var account = new Account { Id = Guid.NewGuid(), DisplayName = request.DisplayName.Trim() };
+        var account = new Account { Id = Guid.NewGuid(), DisplayName = request.DisplayName.Trim(), CreatedAt = TimeProvider.System.GetUtcNow() };
         var device = new Device { Id = request.DeviceId, AccountId = account.Id, Generation = 1, IdentityKey = request.IdentityKey, RegistrationId = request.RegistrationId };
         Transport.Require(!await db.Devices.AnyAsync(x => x.Id == device.Id, ct), "DEVICE_ALREADY_EXISTS", 409);
         db.Accounts.Add(account); db.Devices.Add(device);
@@ -187,6 +188,14 @@ if (enableOperatorEndpoints)
             return Results.Ok(new { code });
         });
 }
+
+// Service administration panel (docs/ADMIN_PANEL.md): absent unless deliberately enabled; Nginx limits it to admin addresses.
+var adminEnabled = app.Configuration["Admin:Enabled"] switch
+{
+    null or "" or "false" => false, "true" => true,
+    _ => throw new InvalidOperationException("Admin:Enabled must be true or false."),
+};
+if (adminEnabled) AdminApi.Map(app);
 
 // Public auth API. Separate from /api/v1/dev; its presence does not lift the Development-only guard above.
 var auth = app.MapGroup("/api/v1/auth").AddEndpointFilter(async (context, next) =>
@@ -258,7 +267,10 @@ if (app.Configuration.GetValue<bool>("Dev:AutoMigrate"))
     await using var scope = app.Services.CreateAsyncScope();
     await scope.ServiceProvider.GetRequiredService<MessengerDb>().Database.MigrateAsync();
 }
+// Console administration: `dotnet Messenger.Api.dll admin create --login NAME --role admin` (no HTTP surface).
+if (args is ["admin", ..]) return await AdminCli.Run(app, args);
 app.Run();
+return 0;
 
 static void ValidateProvision(ProvisionRequest r)
 {

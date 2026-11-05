@@ -120,7 +120,7 @@ def location(pattern, allowed, api_port, websocket=False):
 
 
 def prepare(*, host, certificate, private_key, backup_certificate, testers, operators, output,
-            bind='127.0.0.1', port=443, api_port=5080):
+            bind='127.0.0.1', port=443, api_port=5080, admins=()):
     host = hostname(host)
     try:
         bind_ip = ipaddress.ip_address(bind)
@@ -130,6 +130,7 @@ def prepare(*, host, certificate, private_key, backup_certificate, testers, oper
         raise InvalidConfiguration('Ports must be integers from 1 to 65535.')
     tester_networks = networks(testers)
     operator_networks = networks(operators)
+    admin_networks = networks(admins)  # Service administration panel; empty means deny all.
     if not tester_networks:
         raise InvalidConfiguration('An explicit tester allowlist is required.')
     certificate, private_key, backup_certificate, output = map(safe_path,
@@ -192,6 +193,8 @@ server {{
     add_header X-Content-Type-Options nosniff always;
     if ($ssl_server_name != {host}) {{ return 421; }}
 '''
+    # Before the tester /api/v1 location: the first matching regex wins.
+    config += location(r'^/(?:admin|api/v1/admin)(?:/|$)', admin_networks, api_port)
     config += location(r'^/api/v1/dev(?:/|$)', operator_networks, api_port)
     config += location(r'^/(?:openapi|health)(?:/|$)', operator_networks, api_port)
     config += location(r'^/api/v1(?:/|$)', tester_networks, api_port)
@@ -242,6 +245,7 @@ def main():
     parser.add_argument('--backup-certificate', required=True, help='Public certificate for a distinct backup key')
     parser.add_argument('--tester', action='append', required=True, help='Allowed direct tester IP/CIDR; repeatable')
     parser.add_argument('--operator', action='append', default=[], help='Allowed direct operator IP/CIDR; absent means deny all')
+    parser.add_argument('--admin', action='append', default=[], help='Allowed service-administrator IP/CIDR; absent means deny all')
     parser.add_argument('--output', required=True, help='New private output directory, never overwritten')
     parser.add_argument('--bind', default='127.0.0.1', help='Listener IP; explicit 0.0.0.0 for a public IPv4 interface')
     parser.add_argument('--port', type=int, default=443)
@@ -249,7 +253,7 @@ def main():
     args = parser.parse_args()
     try:
         prepare(host=args.hostname, certificate=args.certificate, private_key=args.private_key,
-                backup_certificate=args.backup_certificate, testers=args.tester, operators=args.operator,
+                backup_certificate=args.backup_certificate, testers=args.tester, operators=args.operator, admins=args.admin,
                 output=args.output, bind=args.bind, port=args.port, api_port=args.api_port)
     except (InvalidConfiguration, OSError, ValueError) as error:
         parser.exit(2, 'Preparation failed: ' + str(error) + '\n')

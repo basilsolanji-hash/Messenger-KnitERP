@@ -722,4 +722,22 @@ public sealed class AuthFlowTests : IAsyncLifetime
         Assert.False(await db.Devices.Where(x => x.Id == aliceDevice.Id).Select(x => x.Active).SingleAsync());
         Assert.False(await db.RefreshFamilies.AnyAsync(x => x.RevokedAt == null));
     }
+
+    [Fact, Trait("Category", "PostgreSQL")]
+    public async Task SuspendedAccountCannotSignInRefreshOrUseItsToken()
+    {
+        using var device = new TestDevice();
+        var phone = RuPhone();
+        var session = await Register(device, phone);
+        await using (var db = database.Open())
+            await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE accounts SET \"SuspendedAt\" = now(), \"SuspendReason\" = 'test' WHERE \"Id\" = {session.AccountId}");
+        Assert.Equal(HttpStatusCode.Unauthorized, await Me(session.AccessToken));
+        await Fails(await Refresh(device, session, session.RefreshToken), "SESSION_REVOKED");
+        await AgeChallenges(phone);
+        using var next = new TestDevice();
+        var c = await Start(next, phone);
+        await Fails(await Post(a, "/api/v1/auth/sms/verify", Verify(next, c, phone, CodeFor(phone))), "ACCOUNT_SUSPENDED");
+        await using var check = database.Open();
+        Assert.False(await check.Devices.AnyAsync(x => x.Id == next.Id));
+    }
 }

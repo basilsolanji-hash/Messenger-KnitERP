@@ -56,7 +56,8 @@ public sealed class Access(IConfiguration config, TimeProvider clock)
     }
     public static Task<bool> IsActive(MessengerDb db, Actor a, CancellationToken ct = default) =>
         db.Devices.AsNoTracking().AnyAsync(d => d.Id == a.DeviceId && d.AccountId == a.AccountId &&
-            d.Generation == a.Generation && d.Active && db.Accounts.Any(x => x.Id == a.AccountId && x.Generation == a.Generation), ct);
+            d.Generation == a.Generation && d.Active &&
+            db.Accounts.Any(x => x.Id == a.AccountId && x.Generation == a.Generation && x.SuspendedAt == null), ct);
 
     public static void ProvisioningKey(HttpContext ctx, IConfiguration config)
     {

@@ -58,7 +58,8 @@ public sealed class Transport(MessengerDb db, TimeProvider clock, IConfiguration
     public async Task<ClaimedBundle> Claim(Actor actor, ClaimRequest request, CancellationToken ct)
     {
         Require(request.AccountId != Guid.Empty && request.ClaimId != Guid.Empty);
-        var targetId = await db.Devices.Where(x => x.AccountId == request.AccountId && x.Active).Select(x => x.Id).SingleOrDefaultAsync(ct);
+        var targetId = await db.Devices.Where(x => x.AccountId == request.AccountId && x.Active &&
+            db.Accounts.Any(a => a.Id == request.AccountId && a.SuspendedAt == null)).Select(x => x.Id).SingleOrDefaultAsync(ct);
         Require(targetId != Guid.Empty, "NOT_FOUND", 404);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         await LockDevices([actor.DeviceId, targetId], ct);
@@ -123,6 +124,7 @@ public sealed class Transport(MessengerDb db, TimeProvider clock, IConfiguration
             x.Generation == request.RecipientGeneration && x.Active, ct), "RECIPIENT_DEVICE_CHANGED", 409);
         Require(!await db.Blocks.AnyAsync(x => (x.OwnerId == actor.AccountId && x.TargetId == request.RecipientAccountId) ||
             (x.OwnerId == request.RecipientAccountId && x.TargetId == actor.AccountId), ct), "DELIVERY_UNAVAILABLE", 403);
+        Require(!await db.Accounts.AnyAsync(x => x.Id == request.RecipientAccountId && x.SuspendedAt != null, ct), "DELIVERY_UNAVAILABLE", 403);
         var now = clock.GetUtcNow();
         // PostgreSQL timestamps have microsecond precision. Persist and return the same value
         // on the first acceptance and on an idempotent retry loaded from the database.

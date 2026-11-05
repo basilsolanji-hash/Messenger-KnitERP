@@ -143,6 +143,11 @@ class GeneratorTests(unittest.TestCase):
         self.assertIn('ssl_protocols TLSv1.2 TLSv1.3;', include)
         first = include.split('location ~* ^/api/v1/dev')[1].split('location ~*')[0]
         self.assertIn('deny all;', first)
+        admin = include.split('location ~* ^/(?:admin|api/v1/admin)')[1].split('location ~*')[0]
+        self.assertIn('deny all;', admin)
+        self.assertNotIn('allow ', admin)
+        # The admin location precedes the tester /api/v1 location, so testers never reach /api/v1/admin.
+        self.assertLess(include.index('^/(?:admin|api/v1/admin)'), include.index('^/api/v1(?:/|$)'))
         self.assertNotIn('allow ', first)
 
 
@@ -181,7 +186,7 @@ class NginxIntegrationTests(unittest.TestCase):
             cls.port = sock.getsockname()[1]
         cls.bundle = cls.root / 'bundle'
         cls.endpoint = module.prepare(host=HOST, certificate=cls.current, private_key=cls.key,
-            backup_certificate=cls.backup, testers=['127.0.0.1'], operators=['127.0.0.2'], output=cls.bundle,
+            backup_certificate=cls.backup, testers=['127.0.0.1'], operators=['127.0.0.2'], admins=['127.0.0.4'], output=cls.bundle,
             port=cls.port, api_port=cls.upstream.server_port)
         # This container has UID0 with no capabilities or mapped alternate UID. Keep its existing UID
         # only in the fixture, instead of asking Nginx to chown temp paths to its compiled-in nobody.
@@ -261,6 +266,21 @@ class NginxIntegrationTests(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertEqual(200, self.request(path, source='127.0.0.2')[0])
         self.assertEqual(403, self.request('/api/v1/me', source='127.0.0.2')[0])
+
+    def test_admin_panel_only_for_admin_addresses_including_normalization_variants(self):
+        paths = ['/admin', '/ADMIN/app.js', '/api/v1/admin/me', '/API/V1/ADMIN/login', '/api/v1/%61dmin/me',
+                 '/api/v1//admin/me', '/api/v1/other/../admin/me', '/admin%2fapp.js']
+        for source in ('127.0.0.1', '127.0.0.2'):  # tester and operator
+            for path in paths:
+                with self.subTest(source=source, path=path):
+                    before = len(self.requests)
+                    self.assertEqual(403, self.request(path, source=source)[0])
+                    self.assertEqual(before, len(self.requests))
+        for path in ['/admin', '/admin/app.js', '/api/v1/admin/me', '/API/V1/ADMIN/login']:
+            with self.subTest(source='admin', path=path):
+                self.assertEqual(200, self.request(path, source='127.0.0.4')[0])
+        self.assertEqual(403, self.request('/api/v1/me', source='127.0.0.4')[0])
+        self.assertEqual(403, self.request('/api/v1/dev/accounts', source='127.0.0.4')[0])
 
     def test_unknown_routes_are_not_proxied(self):
         before = len(self.requests)

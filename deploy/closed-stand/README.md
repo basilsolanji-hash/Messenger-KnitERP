@@ -36,6 +36,17 @@ scp -i "$HOME\.ssh\os_vps" root@155.212.217.23:/etc/os-communications-https-v1/s
 
 Номеров телефонов, текста переписки и токенов в панели нет. Каждое действие пишется в журнал API строкой `Operator action`: `docker compose logs api | grep "Operator action"`. Скрипты `revoke-sessions.sh` и `operator-endpoints.sh` остаются запасным путём.
 
+## Панель администратора сервиса
+
+По умолчанию выключена. Чтобы включить:
+
+1. Дописать в `.env` строку `Admin__Enabled=true`.
+2. Перезапустить compose unit.
+3. Добавить адреса администраторов в `set-allowlist.sh --admin IP`.
+4. Создать первую учётную запись: `docker compose run --rm --no-deps api admin create --login ЛОГИН --role admin`. Пароль и ключ TOTP команда показывает один раз.
+
+Страница открывается по адресу `https://chat.kniterp.online/admin`. Описание — `docs/ADMIN_API.md`.
+
 ## 1. Убрать резервный TLS-ключ с сервера (Windows)
 
 ```powershell

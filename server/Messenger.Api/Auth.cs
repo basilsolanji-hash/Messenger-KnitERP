@@ -237,9 +237,11 @@ public sealed class AuthService(MessengerDb db, TimeProvider clock, AuthSecrets 
         var device = new Device { Id = c.DeviceId, RegistrationId = c.RegistrationId, IdentityKey = c.IdentityKey, AuthKey = c.AuthKey };
         Guid? replaced = null;
         var created = account is null;
+        // A suspended account cannot sign in again until a service administrator resumes it.
+        Transport.Require(account?.SuspendedAt is null, "ACCOUNT_SUSPENDED", 403);
         if (account is null)
         {
-            account = new Account { Id = Guid.NewGuid(), PhoneIndex = c.PhoneIndex, Generation = 1 };
+            account = new Account { Id = Guid.NewGuid(), PhoneIndex = c.PhoneIndex, Generation = 1, CreatedAt = now };
             device.AccountId = account.Id;
             device.Generation = 1;
             db.Accounts.Add(account);
@@ -328,7 +330,7 @@ public sealed class AuthService(MessengerDb db, TimeProvider clock, AuthSecrets 
         Transport.Require(family.AbsoluteExpiresAt > now, "SESSION_EXPIRED", 401);
         var device = await db.Devices.AsNoTracking().SingleAsync(x => x.Id == family.DeviceId, ct);
         var account = await db.Accounts.AsNoTracking().SingleAsync(x => x.Id == family.AccountId, ct);
-        if (!device.Active || device.Generation != account.Generation || device.AuthKey is null)
+        if (!device.Active || device.Generation != account.Generation || device.AuthKey is null || account.SuspendedAt is not null)
         {
             await Revoke(family, "device-inactive", now, ct);
             throw new ApiFault(401, "SESSION_REVOKED");
