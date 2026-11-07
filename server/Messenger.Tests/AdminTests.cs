@@ -52,7 +52,7 @@ public sealed class AdminTests : IAsyncLifetime
     }
 
     private async Task<HttpResponseMessage> Call(Session? s, HttpMethod method, string path, object? body = null, bool csrf = true,
-        string peer = Peer, string? origin = null)
+        string peer = Peer, string? origin = null, HttpClient? transport = null)
     {
         using var request = new HttpRequestMessage(method, path);
         if (body is not null) request.Content = JsonContent.Create(body, options: Json);
@@ -60,7 +60,7 @@ public sealed class AdminTests : IAsyncLifetime
         if (s is not null && csrf) request.Headers.Add(AdminApi.CsrfHeader, s.Csrf);
         if (origin is not null) request.Headers.Add("Origin", origin);
         request.Headers.Add("X-Test-Peer", peer);
-        return await client.SendAsync(request);
+        return await (transport ?? client).SendAsync(request);
     }
 
     [Fact]
@@ -162,6 +162,81 @@ public sealed class AdminTests : IAsyncLifetime
         await Fails(await Call(aud, HttpMethod.Get, "/api/v1/admin/me"), "ADMIN_SESSION_REQUIRED");
         await Fails(await LoginRaw("watcher", auditor.Password, Code(auditorKey)), "ADMIN_LOGIN_FAILED");
         Assert.NotEqual(auditor.Password, reset.Password);
+    }
+
+    [Theory]
+    [InlineData("disable")]
+    [InlineData("role")]
+    public async Task ConcurrentAdministratorsCannotRemoveEachOthersAccess(string action)
+    {
+        var (first, firstKey) = await NewAdmin("first", AdminRole.Admin);
+        var (second, secondKey) = await NewAdmin("second", AdminRole.Admin);
+        var one = await Login(first.Login, first.Password, firstKey);
+        var two = await Login(second.Login, second.Password, secondKey);
+        await using var otherHost = new AuthHost(database, clock, new Dictionary<string, string> { ["Admin:Enabled"] = "true" });
+        using var otherClient = otherHost.CreateClient();
+        // Keep both updates in flight long enough to expose a check-then-write race.
+        // This trigger exists only in this test's isolated PostgreSQL schema.
+        await using var db = database.Open();
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE FUNCTION slow_admin_update() RETURNS trigger LANGUAGE plpgsql AS $$
+            BEGIN PERFORM pg_sleep(0.3); RETURN NEW; END $$;
+            CREATE TRIGGER slow_admin_update BEFORE UPDATE ON admin_users
+            FOR EACH ROW EXECUTE FUNCTION slow_admin_update();
+            """);
+        object? body = action == "role" ? new { role = "support" } : null;
+        var replies = await Task.WhenAll(
+            Call(one, HttpMethod.Post, $"/api/v1/admin/users/{second.Id}/{action}", body),
+            Call(two, HttpMethod.Post, $"/api/v1/admin/users/{first.Id}/{action}", body, transport: otherClient));
+        Assert.Single(replies, x => x.IsSuccessStatusCode);
+        await Fails(replies.Single(x => !x.IsSuccessStatusCode), "ADMIN_SESSION_REQUIRED");
+        Assert.Equal(1, await db.AdminUsers.CountAsync(x => x.Role == AdminRole.Admin && !x.Disabled));
+    }
+
+    [Fact]
+    public async Task FailedAuditRollsBackRoleChangeAndSessionRevocation()
+    {
+        var (admin, adminKey) = await NewAdmin("chief", AdminRole.Admin);
+        var (support, supportKey) = await NewAdmin("helper", AdminRole.Support);
+        var adm = await Login(admin.Login, admin.Password, adminKey);
+        var sup = await Login(support.Login, support.Password, supportKey);
+        await using var db = database.Open();
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE FUNCTION refuse_role_audit() RETURNS trigger LANGUAGE plpgsql AS $$
+            BEGIN
+                IF NEW."Action" = 'change-role' THEN RAISE EXCEPTION 'test audit failure'; END IF;
+                RETURN NEW;
+            END $$;
+            CREATE TRIGGER refuse_role_audit BEFORE INSERT ON admin_audit
+            FOR EACH ROW EXECUTE FUNCTION refuse_role_audit();
+            """);
+        var response = await Call(adm, HttpMethod.Post, $"/api/v1/admin/users/{support.Id}/role", new { role = "admin" });
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.Equal(AdminRole.Support, (await db.AdminUsers.AsNoTracking().SingleAsync(x => x.Id == support.Id)).Role);
+        Assert.Equal(HttpStatusCode.OK, (await Call(sup, HttpMethod.Get, "/api/v1/admin/me")).StatusCode);
+        Assert.False(await db.AdminAudit.AnyAsync(x => x.Action == "change-role"));
+    }
+
+    [Fact]
+    public async Task PasswordChangeKeepsCurrentSessionRevokesOthersAndAuditsWrongPassword()
+    {
+        var (admin, key) = await NewAdmin("chief", AdminRole.Admin);
+        var first = await Login(admin.Login, admin.Password, key);
+        clock.Advance(TimeSpan.FromSeconds(31));
+        var current = await Login(admin.Login, admin.Password, key);
+        const string next = "new-password-for-admin-2026";
+        await Fails(await Call(current, HttpMethod.Post, "/api/v1/admin/me/password",
+            new { current = "wrong-password", next }), "PASSWORD_INVALID");
+        await using var db = database.Open();
+        Assert.True(await db.AdminAudit.AnyAsync(x => x.Action == "password-change" && !x.Success));
+        Assert.Equal(HttpStatusCode.NoContent, (await Call(current, HttpMethod.Post, "/api/v1/admin/me/password",
+            new { current = admin.Password, next })).StatusCode);
+        await Fails(await Call(first, HttpMethod.Get, "/api/v1/admin/me"), "ADMIN_SESSION_REQUIRED");
+        Assert.Equal(HttpStatusCode.OK, (await Call(current, HttpMethod.Get, "/api/v1/admin/me")).StatusCode);
+        clock.Advance(TimeSpan.FromSeconds(31));
+        await Fails(await LoginRaw(admin.Login, admin.Password, Code(key)), "ADMIN_LOGIN_FAILED");
+        await Login(admin.Login, next, key);
+        Assert.True(await db.AdminAudit.AnyAsync(x => x.Action == "password-change" && x.Success));
     }
 
     [Fact]

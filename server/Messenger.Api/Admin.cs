@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Messenger.Api;
 
@@ -141,16 +142,19 @@ public static class AdminApi
         });
         api.MapPost("/me/password", async (HttpContext c, PasswordChange r, MessengerDb db, TimeProvider clock, AdminCredentials creds, CancellationToken ct) =>
         {
+            await using var tx = await BeginUserChange(c, db, clock, ct);
             var a = await Authenticate(c, db, clock, ct, mutate: true);
             Transport.Require(AdminCredentials.IsStrong(r.Next), "PASSWORD_WEAK");
             if (!await creds.Verify(a.User.PasswordHash, r.Current ?? "", ct))
             {
                 await Audit(db, c, a.User, "password-change", a.User.Login, "wrong current password", false, ct);
+                await tx.CommitAsync(ct);
                 throw new ApiFault(403, "PASSWORD_INVALID");
             }
             a.User.PasswordHash = await creds.Hash(r.Next, ct);
             await RevokeOtherSessions(db, a.User.Id, a.Session.TokenHash, clock.GetUtcNow(), ct);
             await Audit(db, c, a.User, "password-change", a.User.Login, "other sessions ended", true, ct);
+            await tx.CommitAsync(ct);
             return Results.NoContent();
         });
 
@@ -245,14 +249,17 @@ public static class AdminApi
         });
         api.MapPost("/users", async (HttpContext c, NewUser r, MessengerDb db, TimeProvider clock, AdminCredentials creds, CancellationToken ct) =>
         {
+            await using var tx = await BeginUserChange(c, db, clock, ct, [AdminRole.Admin]);
             var a = await Authenticate(c, db, clock, ct, mutate: true, roles: [AdminRole.Admin]);
             var issued = await CreateUser(db, creds, r.Login, ParseRole(r.Role), clock.GetUtcNow(), ct);
             await Audit(db, c, a.User, "create-user", issued.Login, r.Role, true, ct);
+            await tx.CommitAsync(ct);
             NoStore(c);
             return Results.Ok(issued);
         });
         api.MapPost("/users/{id:guid}/role", async (Guid id, HttpContext c, RoleChange r, MessengerDb db, TimeProvider clock, CancellationToken ct) =>
         {
+            await using var tx = await BeginUserChange(c, db, clock, ct, [AdminRole.Admin]);
             var a = await Authenticate(c, db, clock, ct, mutate: true, roles: [AdminRole.Admin]);
             var role = ParseRole(r.Role);
             var user = await LockUser(db, id, ct);
@@ -261,6 +268,7 @@ public static class AdminApi
             user.Role = role;
             await RevokeOtherSessions(db, user.Id, null, clock.GetUtcNow(), ct);
             await Audit(db, c, a.User, "change-role", user.Login, r.Role, true, ct);
+            await tx.CommitAsync(ct);
             return Results.NoContent();
         });
         api.MapPost("/users/{id:guid}/disable", (Guid id, HttpContext c, MessengerDb db, TimeProvider clock, CancellationToken ct) =>
@@ -270,6 +278,7 @@ public static class AdminApi
         api.MapPost("/users/{id:guid}/reset-credentials", async (Guid id, HttpContext c, MessengerDb db, TimeProvider clock,
             AdminCredentials creds, CancellationToken ct) =>
         {
+            await using var tx = await BeginUserChange(c, db, clock, ct, [AdminRole.Admin]);
             var a = await Authenticate(c, db, clock, ct, mutate: true, roles: [AdminRole.Admin]);
             var user = await LockUser(db, id, ct);
             Transport.Require(user.Id != a.User.Id, "SELF_CHANGE_FORBIDDEN", 409);
@@ -279,6 +288,7 @@ public static class AdminApi
             user.TotpLastStep = 0; user.FailedLogins = 0; user.LockedUntil = null;
             await RevokeOtherSessions(db, user.Id, null, clock.GetUtcNow(), ct);
             await Audit(db, c, a.User, "reset-credentials", user.Login, "", true, ct);
+            await tx.CommitAsync(ct);
             NoStore(c);
             return Results.Ok(new Issued(user.Id, user.Login, password, Totp.Uri(user.Login, totp)));
         });
@@ -294,6 +304,8 @@ public static class AdminApi
         await Take(db, secrets, "admin-login-ip", host, TimeSpan.FromMinutes(15), 30, now, ct);
         var login = (r.Login ?? "").Trim().ToLowerInvariant();
         await using var tx = await db.Database.BeginTransactionAsync(ct);
+        // Acquire the same lock before any user row lock, avoiding lock-order inversion with user changes.
+        await db.Database.ExecuteSqlRawAsync("LOCK TABLE admin_users IN EXCLUSIVE MODE", ct);
         var user = await db.AdminUsers.FromSqlInterpolated($"SELECT * FROM admin_users WHERE \"Login\" = {login} FOR UPDATE").SingleOrDefaultAsync(ct);
         if (user is { LockedUntil: { } until } && until > now)
         {
@@ -419,6 +431,7 @@ public static class AdminApi
 
     private static async Task<IResult> UserSwitch(Guid id, HttpContext c, MessengerDb db, TimeProvider clock, bool disable, CancellationToken ct)
     {
+        await using var tx = await BeginUserChange(c, db, clock, ct, [AdminRole.Admin]);
         var a = await Authenticate(c, db, clock, ct, mutate: true, roles: [AdminRole.Admin]);
         var user = await LockUser(db, id, ct);
         Transport.Require(user.Id != a.User.Id, "SELF_CHANGE_FORBIDDEN", 409);
@@ -427,7 +440,26 @@ public static class AdminApi
         if (!disable) { user.FailedLogins = 0; user.LockedUntil = null; }
         if (disable) await RevokeOtherSessions(db, user.Id, null, clock.GetUtcNow(), ct);
         await Audit(db, c, a.User, disable ? "disable-user" : "enable-user", user.Login, "", true, ct);
+        await tx.CommitAsync(ct);
         return Results.NoContent();
+    }
+
+    private static async Task<IDbContextTransaction> BeginUserChange(HttpContext c, MessengerDb db, TimeProvider clock,
+        CancellationToken ct, AdminRole[]? roles = null)
+    {
+        // Reject unauthorized requests before locking. Network-change revocation must persist even on refusal.
+        await Authenticate(c, db, clock, ct, mutate: true, roles: roles);
+        var tx = await db.Database.BeginTransactionAsync(ct);
+        try
+        {
+            // Serialize panel-user changes across API instances, including the last-admin check. EXCLUSIVE also
+            // coordinates with Login's FOR UPDATE; plain reads of the user list remain available.
+            await db.Database.ExecuteSqlRawAsync("LOCK TABLE admin_users IN EXCLUSIVE MODE", ct);
+            // The caller authenticates again under the lock: its session or role may have changed while waiting.
+            db.ChangeTracker.Clear();
+            return tx;
+        }
+        catch { await tx.DisposeAsync(); throw; }
     }
 
     private static async Task<AdminUser> LockUser(MessengerDb db, Guid id, CancellationToken ct)
@@ -527,17 +559,22 @@ public static class AdminCli
         switch (args.ElementAtOrDefault(1))
         {
             case "create":
+            {
+                await using var tx = await db.Database.BeginTransactionAsync();
+                await db.Database.ExecuteSqlRawAsync("LOCK TABLE admin_users IN EXCLUSIVE MODE");
                 var issued = await AdminApi.CreateUser(db, creds, Arg("--login"), AdminApi.ParseRole(Arg("--role") ?? "admin"),
                     TimeProvider.System.GetUtcNow(), CancellationToken.None);
                 db.AdminAudit.Add(new AdminAudit { At = TimeProvider.System.GetUtcNow(), Login = "console", Remote = "console",
                     Action = "create-user", Target = issued.Login, Detail = Arg("--role") ?? "admin", Success = true });
                 await db.SaveChangesAsync();
+                await tx.CommitAsync();
                 // Shown once on the server console; never logged.
                 Console.WriteLine($"ADMIN_CREATED login={issued.Login}");
                 Console.WriteLine($"password: {issued.Password}");
                 Console.WriteLine($"totp: {issued.OtpAuthUri}");
                 Console.WriteLine("Add the TOTP URI to an authenticator app, store the password offline, then clear this terminal.");
                 return 0;
+            }
             case "list":
                 foreach (var u in await db.AdminUsers.AsNoTracking().OrderBy(x => x.Login).ToListAsync())
                     Console.WriteLine($"{u.Login}\t{u.Role}\t{(u.Disabled ? "disabled" : "enabled")}");
